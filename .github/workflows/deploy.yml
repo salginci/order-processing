@@ -151,6 +151,57 @@ jobs:
         echo "Pushing Notification Service image..."
         docker push gcr.io/$PROJECT_ID/notification-service:$GITHUB_SHA
 
+    - name: Build and Push Product Service
+      run: |
+        echo "Building Product Service..."
+        docker build \
+          --no-cache \
+          --build-arg DB_HOST=$DB_HOST \
+          --build-arg DB_PORT=$DB_PORT \
+          --build-arg DB_USER=$DB_USER \
+          --build-arg DB_PASSWORD=$DB_PASSWORD \
+          --build-arg DB_NAME=$DB_NAME \
+          --build-arg NODE_ENV=production \
+          -t gcr.io/$PROJECT_ID/product-service:$GITHUB_SHA \
+          -f packages/product-service/Dockerfile \
+          /tmp/build-context
+        echo "Pushing Product Service image..."
+        docker push gcr.io/$PROJECT_ID/product-service:$GITHUB_SHA
+
+    - name: Build and Push Email Service
+      run: |
+        echo "Building Email Service..."
+        docker build \
+          --no-cache \
+          --build-arg DB_HOST=$DB_HOST \
+          --build-arg DB_PORT=$DB_PORT \
+          --build-arg DB_USER=$DB_USER \
+          --build-arg DB_PASSWORD=$DB_PASSWORD \
+          --build-arg DB_NAME=$DB_NAME \
+          --build-arg NODE_ENV=production \
+          -t gcr.io/$PROJECT_ID/email-service:$GITHUB_SHA \
+          -f packages/email-service/Dockerfile \
+          /tmp/build-context
+        echo "Pushing Email Service image..."
+        docker push gcr.io/$PROJECT_ID/email-service:$GITHUB_SHA
+
+    - name: Build and Push Customer Service
+      run: |
+        echo "Building Customer Service..."
+        docker build \
+          --no-cache \
+          --build-arg DB_HOST=$DB_HOST \
+          --build-arg DB_PORT=$DB_PORT \
+          --build-arg DB_USER=$DB_USER \
+          --build-arg DB_PASSWORD=$DB_PASSWORD \
+          --build-arg DB_NAME=$DB_NAME \
+          --build-arg NODE_ENV=production \
+          -t gcr.io/$PROJECT_ID/customer-service:$GITHUB_SHA \
+          -f packages/customer-service/Dockerfile \
+          /tmp/build-context
+        echo "Pushing Customer Service image..."
+        docker push gcr.io/$PROJECT_ID/customer-service:$GITHUB_SHA
+
     - name: Deploy Cart Service
       run: |
         echo "Deploying Cart Service to Cloud Run..."
@@ -189,4 +240,49 @@ jobs:
           --region $REGION \
           --platform managed \
           --allow-unauthenticated \
-          --set-env-vars="DB_HOST=$DB_HOST,DB_PORT=$DB_PORT,DB_USER=$DB_USER,DB_PASSWORD=$DB_PASSWORD,DB_NAME=$DB_NAME,NODE_ENV=production" 
+          --set-env-vars="DB_HOST=$DB_HOST,DB_PORT=$DB_PORT,DB_USER=$DB_USER,DB_PASSWORD=$DB_PASSWORD,DB_NAME=$DB_NAME,NODE_ENV=production"
+
+    - name: Deploy Product Service
+      run: |
+        echo "Deploying Product Service to Cloud Run..."
+        gcloud run deploy product-service \
+          --image gcr.io/$PROJECT_ID/product-service:$GITHUB_SHA \
+          --region $REGION \
+          --platform managed \
+          --allow-unauthenticated \
+          --set-env-vars="DB_HOST=$DB_HOST,DB_PORT=$DB_PORT,DB_USER=$DB_USER,DB_PASSWORD=$DB_PASSWORD,DB_NAME=$DB_NAME,NODE_ENV=production"
+
+    - name: Deploy Email Service
+      run: |
+        echo "Deploying Email Service to Cloud Run..."
+        gcloud run deploy email-service \
+          --image gcr.io/$PROJECT_ID/email-service:$GITHUB_SHA \
+          --region $REGION \
+          --platform managed \
+          --allow-unauthenticated \
+          --set-env-vars="DB_HOST=$DB_HOST,DB_PORT=$DB_PORT,DB_USER=$DB_USER,DB_PASSWORD=$DB_PASSWORD,DB_NAME=$DB_NAME,NODE_ENV=production"
+
+    - name: Deploy Customer Service
+      run: |
+        echo "Deploying Customer Service to Cloud Run..."
+        gcloud run deploy customer-service \
+          --image gcr.io/$PROJECT_ID/customer-service:$GITHUB_SHA \
+          --region $REGION \
+          --platform managed \
+          --allow-unauthenticated \
+          --set-env-vars="DB_HOST=$DB_HOST,DB_PORT=$DB_PORT,DB_USER=$DB_USER,DB_PASSWORD=$DB_PASSWORD,DB_NAME=$DB_NAME,NODE_ENV=production"
+
+    - name: Post Google Auth
+      if: always()
+      run: |
+        echo "Cleaning up Google Auth..."
+
+    - name: Post Checkout
+      if: always()
+      run: |
+        echo "Cleaning up checkout..."
+
+    - name: Complete job
+      if: always()
+      run: |
+        echo "Deployment complete" 
