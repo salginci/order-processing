@@ -172,7 +172,7 @@ This project is built using a monorepo architecture, where all microservices are
 
 The platform consists of the following services:
 
-### Core Services
+### Core Services (Defined in assestment)
 - Order Service
 - Inventory Service
 - Notification Service
