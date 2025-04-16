@@ -1,5 +1,7 @@
 # Basic Order Proccessing Pure-Event Driven Microservices Platform
 
+Version: 1.0.0
+
 Pure-Event driven order proccess applicaiton built with microservices architecture, featuring:
 - Product Management
 - Order Processing
