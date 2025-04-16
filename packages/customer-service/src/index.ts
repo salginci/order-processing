@@ -7,7 +7,7 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-const port = process.env.CUSTOMER_PORT || 3006;
+const port = process.env.NODE_ENV === 'production' ? process.env.PORT || 8080 : process.env.CUSTOMER_PORT || 3006;
 
 // Create PostgreSQL connection pool
 const pool = new Pool({
