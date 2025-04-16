@@ -1,0 +1,22 @@
+{
+  "name": "@ecommerce/shared",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@google-cloud/pubsub": "^3.4.0",
+    "winston": "^3.8.2",
+    "typeorm": "^0.3.16",
+    "pg": "^8.11.0",
+    "reflect-metadata": "^0.1.13"
+  },
+  "devDependencies": {
+    "@types/winston": "^2.4.4",
+    "@types/pg": "^8.10.9"
+  }
+} 

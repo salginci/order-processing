@@ -1,0 +1,21 @@
+{
+  "name": "ecommerce-monorepo",
+  "version": "1.0.0",
+  "description": "E-commerce microservices monorepo",
+  "main": "index.js",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=packages/order-service\" \"npm run dev --workspace=packages/inventory-service\" \"npm run dev --workspace=packages/notification-service\" \"npm run dev --workspace=packages/product-service\" \"npm run dev --workspace=packages/email-service\" \"npm run dev --workspace=packages/cart-service\" \"npm run dev --workspace=packages/customer-service\"",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "clean": "npm run clean --workspaces"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  }
+} 

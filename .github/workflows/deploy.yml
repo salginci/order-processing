@@ -1,0 +1,100 @@
+name: Deploy to Google Cloud Run
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'packages/order-service/**'
+      - 'packages/inventory-service/**'
+      - 'packages/notification-service/**'
+      - 'packages/shared/**'
+      - '.github/workflows/deploy.yml'
+      - 'package.json'
+  pull_request:
+    branches: [ main ]
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: us-central1
+
+jobs:
+  setup-build-deploy:
+    name: Setup, Build, Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build
+      run: npm run build
+
+    - name: Run tests
+      run: npm test
+
+    - name: Configure Google Cloud
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+        service_account_key: ${{ secrets.GCP_SA_KEY }}
+        export_default_credentials: true
+
+    - name: Build and push containers
+      run: |
+        # Only build and push changed services
+        if [[ "${{ github.event.head_commit.modified }}" == *"packages/order-service"* ]]; then
+          gcloud builds submit \
+            --config packages/order-service/cloudbuild.yaml \
+            --substitutions _REGION=${{ env.REGION }}
+        fi
+
+        if [[ "${{ github.event.head_commit.modified }}" == *"packages/inventory-service"* ]]; then
+          gcloud builds submit \
+            --config packages/inventory-service/cloudbuild.yaml \
+            --substitutions _REGION=${{ env.REGION }}
+        fi
+
+        if [[ "${{ github.event.head_commit.modified }}" == *"packages/notification-service"* ]]; then
+          gcloud builds submit \
+            --config packages/notification-service/cloudbuild.yaml \
+            --substitutions _REGION=${{ env.REGION }}
+        fi
+
+    - name: Deploy to Cloud Run
+      run: |
+        # Only deploy changed services
+        if [[ "${{ github.event.head_commit.modified }}" == *"packages/order-service"* ]]; then
+          gcloud run deploy order-service \
+            --image gcr.io/${{ env.PROJECT_ID }}/order-service \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars="GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},POSTGRES_URL=${{ secrets.POSTGRES_URL }}"
+        fi
+
+        if [[ "${{ github.event.head_commit.modified }}" == *"packages/inventory-service"* ]]; then
+          gcloud run deploy inventory-service \
+            --image gcr.io/${{ env.PROJECT_ID }}/inventory-service \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars="GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},POSTGRES_URL=${{ secrets.POSTGRES_URL }}"
+        fi
+
+        if [[ "${{ github.event.head_commit.modified }}" == *"packages/notification-service"* ]]; then
+          gcloud run deploy notification-service \
+            --image gcr.io/${{ env.PROJECT_ID }}/notification-service \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars="GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},POSTGRES_URL=${{ secrets.POSTGRES_URL }}"
+        fi 

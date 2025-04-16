@@ -1,0 +1,38 @@
+steps:
+  # Build and push Order Service
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-t', 'gcr.io/$PROJECT_ID/order-service:$COMMIT_SHA',
+      '-t', 'gcr.io/$PROJECT_ID/order-service:latest',
+      '-f', 'order-service/Dockerfile',
+      '.'
+    ]
+
+  # Build and push Inventory Service
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-t', 'gcr.io/$PROJECT_ID/inventory-service:$COMMIT_SHA',
+      '-t', 'gcr.io/$PROJECT_ID/inventory-service:latest',
+      '-f', 'inventory-service/Dockerfile',
+      '.'
+    ]
+
+  # Build and push Notification Service
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-t', 'gcr.io/$PROJECT_ID/notification-service:$COMMIT_SHA',
+      '-t', 'gcr.io/$PROJECT_ID/notification-service:latest',
+      '-f', 'notification-service/Dockerfile',
+      '.'
+    ]
+
+images:
+  - 'gcr.io/$PROJECT_ID/order-service:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/order-service:latest'
+  - 'gcr.io/$PROJECT_ID/inventory-service:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/inventory-service:latest'
+  - 'gcr.io/$PROJECT_ID/notification-service:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/notification-service:latest' 
