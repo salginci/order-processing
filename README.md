@@ -80,8 +80,6 @@ This project is built using a monorepo architecture, where all microservices are
 - `GET /products` - List all products
 - `GET /products/:sku` - Get product by SKU
 - `POST /products` - Create new product
-- `PUT /products/:sku` - Update product
-- `DELETE /products/:sku` - Delete product
 - `GET /` - Health check
 
 ### Order Service (Port: 3000)
@@ -105,8 +103,6 @@ This project is built using a monorepo architecture, where all microservices are
 - `GET /customers` - List all customers
 - `POST /customers` - Create new customer
 - `GET /customers/:id` - Get customer by ID
-- `PUT /customers/:id` - Update customer
-- `DELETE /customers/:id` - Delete customer
 
 ### Notification Service (Port: 3003)
 - `GET /notifications` - List all notifications
