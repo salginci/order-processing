@@ -1,21 +1,19 @@
-name: Deploy to Google Cloud Run
+name: Deploy to Cloud Run
 
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'packages/order-service/**'
-      - 'packages/inventory-service/**'
-      - 'packages/notification-service/**'
-      - 'packages/shared/**'
-      - '.github/workflows/deploy.yml'
-      - 'package.json'
   pull_request:
     branches: [ main ]
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  REGION: us-central1
+  REGION: ${{ secrets.GCP_REGION }}
+  DB_HOST: ${{ secrets.DB_HOST }}
+  DB_PORT: ${{ secrets.DB_PORT }}
+  DB_USER: ${{ secrets.DB_USER }}
+  DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+  DB_NAME: ${{ secrets.DB_NAME }}
 
 jobs:
   setup-build-deploy:
@@ -26,75 +24,72 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-        cache: 'npm'
-
-    - name: Install dependencies
-      run: npm ci
-
-    - name: Build
-      run: npm run build
-
-    - name: Run tests
-      run: npm test
-
-    - name: Configure Google Cloud
+    - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
       with:
         project_id: ${{ secrets.GCP_PROJECT_ID }}
         service_account_key: ${{ secrets.GCP_SA_KEY }}
-        export_default_credentials: true
+        install_components: 'gke-gcloud-auth-plugin'
 
-    - name: Build and push containers
+    - name: Configure Docker
+      run: gcloud auth configure-docker
+
+    - name: Build and Push Cart Service
       run: |
-        # Only build and push changed services
-        if [[ "${{ github.event.head_commit.modified }}" == *"packages/order-service"* ]]; then
-          gcloud builds submit \
-            --config packages/order-service/cloudbuild.yaml \
-            --substitutions _REGION=${{ env.REGION }}
-        fi
+        cd packages/cart-service
+        docker build -t gcr.io/$PROJECT_ID/cart-service:$GITHUB_SHA .
+        docker push gcr.io/$PROJECT_ID/cart-service:$GITHUB_SHA
 
-        if [[ "${{ github.event.head_commit.modified }}" == *"packages/inventory-service"* ]]; then
-          gcloud builds submit \
-            --config packages/inventory-service/cloudbuild.yaml \
-            --substitutions _REGION=${{ env.REGION }}
-        fi
-
-        if [[ "${{ github.event.head_commit.modified }}" == *"packages/notification-service"* ]]; then
-          gcloud builds submit \
-            --config packages/notification-service/cloudbuild.yaml \
-            --substitutions _REGION=${{ env.REGION }}
-        fi
-
-    - name: Deploy to Cloud Run
+    - name: Build and Push Order Service
       run: |
-        # Only deploy changed services
-        if [[ "${{ github.event.head_commit.modified }}" == *"packages/order-service"* ]]; then
-          gcloud run deploy order-service \
-            --image gcr.io/${{ env.PROJECT_ID }}/order-service \
-            --region ${{ env.REGION }} \
-            --platform managed \
-            --allow-unauthenticated \
-            --set-env-vars="GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},POSTGRES_URL=${{ secrets.POSTGRES_URL }}"
-        fi
+        cd packages/order-service
+        docker build -t gcr.io/$PROJECT_ID/order-service:$GITHUB_SHA .
+        docker push gcr.io/$PROJECT_ID/order-service:$GITHUB_SHA
 
-        if [[ "${{ github.event.head_commit.modified }}" == *"packages/inventory-service"* ]]; then
-          gcloud run deploy inventory-service \
-            --image gcr.io/${{ env.PROJECT_ID }}/inventory-service \
-            --region ${{ env.REGION }} \
-            --platform managed \
-            --allow-unauthenticated \
-            --set-env-vars="GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},POSTGRES_URL=${{ secrets.POSTGRES_URL }}"
-        fi
+    - name: Build and Push Inventory Service
+      run: |
+        cd packages/inventory-service
+        docker build -t gcr.io/$PROJECT_ID/inventory-service:$GITHUB_SHA .
+        docker push gcr.io/$PROJECT_ID/inventory-service:$GITHUB_SHA
 
-        if [[ "${{ github.event.head_commit.modified }}" == *"packages/notification-service"* ]]; then
-          gcloud run deploy notification-service \
-            --image gcr.io/${{ env.PROJECT_ID }}/notification-service \
-            --region ${{ env.REGION }} \
-            --platform managed \
-            --allow-unauthenticated \
-            --set-env-vars="GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},POSTGRES_URL=${{ secrets.POSTGRES_URL }}"
-        fi 
+    - name: Build and Push Notification Service
+      run: |
+        cd packages/notification-service
+        docker build -t gcr.io/$PROJECT_ID/notification-service:$GITHUB_SHA .
+        docker push gcr.io/$PROJECT_ID/notification-service:$GITHUB_SHA
+
+    - name: Deploy Cart Service
+      run: |
+        gcloud run deploy cart-service \
+          --image gcr.io/$PROJECT_ID/cart-service:$GITHUB_SHA \
+          --region $REGION \
+          --platform managed \
+          --allow-unauthenticated \
+          --set-env-vars="DB_HOST=$DB_HOST,DB_PORT=$DB_PORT,DB_USER=$DB_USER,DB_PASSWORD=$DB_PASSWORD,DB_NAME=$DB_NAME,NODE_ENV=production"
+
+    - name: Deploy Order Service
+      run: |
+        gcloud run deploy order-service \
+          --image gcr.io/$PROJECT_ID/order-service:$GITHUB_SHA \
+          --region $REGION \
+          --platform managed \
+          --allow-unauthenticated \
+          --set-env-vars="DB_HOST=$DB_HOST,DB_PORT=$DB_PORT,DB_USER=$DB_USER,DB_PASSWORD=$DB_PASSWORD,DB_NAME=$DB_NAME,NODE_ENV=production"
+
+    - name: Deploy Inventory Service
+      run: |
+        gcloud run deploy inventory-service \
+          --image gcr.io/$PROJECT_ID/inventory-service:$GITHUB_SHA \
+          --region $REGION \
+          --platform managed \
+          --allow-unauthenticated \
+          --set-env-vars="DB_HOST=$DB_HOST,DB_PORT=$DB_PORT,DB_USER=$DB_USER,DB_PASSWORD=$DB_PASSWORD,DB_NAME=$DB_NAME,NODE_ENV=production"
+
+    - name: Deploy Notification Service
+      run: |
+        gcloud run deploy notification-service \
+          --image gcr.io/$PROJECT_ID/notification-service:$GITHUB_SHA \
+          --region $REGION \
+          --platform managed \
+          --allow-unauthenticated \
+          --set-env-vars="DB_HOST=$DB_HOST,DB_PORT=$DB_PORT,DB_USER=$DB_USER,DB_PASSWORD=$DB_PASSWORD,DB_NAME=$DB_NAME,NODE_ENV=production" 

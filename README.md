@@ -1,4 +1,4 @@
-# E-commerce Microservices Platform
+# Basic Order Proccessing Pure-Event Driven Microservices Platform
 
 Pure-Event driven order proccess applicaiton built with microservices architecture, featuring:
 - Product Management
@@ -11,9 +11,9 @@ Pure-Event driven order proccess applicaiton built with microservices architectu
 
 ## Project Architecture
 
-This project is built using a monorepo architecture, where all microservices are managed in a single repository. I chose this approach for several key benefits:
+This project is built using a monorepo architecture, where all microservices are managed in a single repository. I choose this approach for several key benefits:
 
-1. **Unified Development Experience**
+1. **Development Experience**
    - Single repository for all services
    - Shared configuration and tooling
    - Consistent coding standards across services
@@ -200,7 +200,99 @@ npm run dev
 
 ## Deployment
 
-The services are deployed using GitHub Actions.
+The services are deployed to Google Cloud Run using GitHub Actions. Each service is containerized and deployed independently.
+
+### Required Secrets
+
+The following secrets need to be configured in your GitHub repository (Settings > Secrets and variables > Actions):
+
+1. **Google Cloud Authentication**:
+   - `GCP_SA_KEY`: The entire content of your service account key JSON file
+   - `GCP_PROJECT_ID`: Your Google Cloud project ID
+   - `GCP_REGION`: The region where services will be deployed (e.g., `us-central1`)
+
+2. **Database Configuration**:
+   - `DB_HOST`: PostgreSQL database host
+   - `DB_PORT`: PostgreSQL port (default: 5432)
+   - `DB_USER`: Database user
+   - `DB_PASSWORD`: Database password
+   - `DB_NAME`: Database name
+
+3. **Service-Specific Configuration**:
+   - `NODE_ENV`: Environment (e.g., `production`)
+   - `PORT`: Service port (will be overridden by Cloud Run)
+
+### Deployment Process
+
+1. **Containerization**:
+   - Each service has its own Dockerfile
+   - Services are built using multi-stage builds
+   - Images are pushed to Google Container Registry (GCR)
+
+2. **GitHub Actions Workflow**:
+   - Triggered on push to main branch
+   - Builds and tests all services
+   - Deploys services to Cloud Run
+   - Updates service configurations
+
+3. **Environment Variables**:
+   - Cloud Run services receive environment variables from GitHub Secrets
+   - Database connection is configured using secrets
+   - Google Cloud authentication is handled via service account
+
+### Local Development vs Production
+
+When running locally:
+- Use `.env` files for configuration
+- Use local PostgreSQL instance
+- Use local Google Cloud credentials
+
+When running in production:
+- Use GitHub Secrets for configuration
+- Use Cloud SQL for PostgreSQL
+- Use service account authentication
+
+### Deployment Steps
+
+1. **Prepare Google Cloud**:
+   ```bash
+   # Enable required APIs
+   gcloud services enable run.googleapis.com
+   gcloud services enable sql.googleapis.com
+   gcloud services enable containerregistry.googleapis.com
+
+   # Create service account
+   gcloud iam service-accounts create github-actions \
+     --display-name="GitHub Actions Service Account"
+
+   # Grant necessary permissions
+   gcloud projects add-iam-policy-binding $PROJECT_ID \
+     --member="serviceAccount:github-actions@$PROJECT_ID.iam.gserviceaccount.com" \
+     --role="roles/run.developer"
+   gcloud projects add-iam-policy-binding $PROJECT_ID \
+     --member="serviceAccount:github-actions@$PROJECT_ID.iam.gserviceaccount.com" \
+     --role="roles/storage.admin"
+   ```
+
+2. **Configure GitHub Repository**:
+   - Add all required secrets
+   - Set up GitHub Actions workflow
+   - Configure branch protection rules
+
+3. **Deploy Services**:
+   - Push changes to main branch
+   - GitHub Actions will automatically:
+     - Build Docker images
+     - Push to GCR
+     - Deploy to Cloud Run
+     - Configure services
+
+### Monitoring and Logging
+
+- Cloud Run provides built-in monitoring
+- Logs are available in Cloud Logging
+- Metrics are available in Cloud Monitoring
+- Set up alerts for service health
 
 ## Documentation
 
