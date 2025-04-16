@@ -15,7 +15,7 @@ RUN npm install
 COPY shared ./shared
 COPY packages/cart-service ./packages/cart-service
 
-# Build
+# Build cart service
 RUN npm run build --workspace=packages/cart-service
 
 # Production stage
@@ -31,8 +31,8 @@ COPY packages/cart-service/package*.json ./packages/cart-service/
 # Install dependencies
 RUN npm install
 
-# Copy built files
-COPY --from=builder /app/shared/dist ./shared/dist
+# Copy shared and built cart service
+COPY shared ./shared
 COPY --from=builder /app/packages/cart-service/dist ./packages/cart-service/dist
 
 # Set environment variables
