@@ -3,17 +3,29 @@ FROM node:18-alpine as builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY packages/shared/package*.json ./packages/shared/
-COPY packages/notification-service/package*.json ./packages/notification-service/
+# Copy root package.json and workspace files
+COPY package*.json .
+COPY package-lock.json .
+COPY tsconfig.json .
+
+# Create necessary directories
+RUN mkdir -p shared/config shared/entities shared/types shared/utils packages/notification-service
+
+# Copy package.json files for workspace packages
+COPY shared/package*.json shared/
+COPY packages/notification-service/package*.json packages/notification-service/
 
 # Install dependencies
 RUN npm ci
 
-# Copy source code
-COPY packages/shared ./packages/shared
-COPY packages/notification-service ./packages/notification-service
+# Copy shared code
+COPY shared/config/ shared/config/
+COPY shared/entities/ shared/entities/
+COPY shared/types/ shared/types/
+COPY shared/utils/ shared/utils/
+COPY shared/tsconfig.json shared/
+COPY packages/notification-service/src/ packages/notification-service/src/
+COPY packages/notification-service/tsconfig.json packages/notification-service/
 
 # Build
 RUN npm run build --workspace=packages/notification-service
@@ -23,10 +35,16 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY packages/shared/package*.json ./packages/shared/
-COPY packages/notification-service/package*.json ./packages/notification-service/
+# Copy root package.json and workspace files
+COPY package*.json .
+COPY package-lock.json .
+
+# Create necessary directories
+RUN mkdir -p shared/config shared/entities shared/types shared/utils packages/notification-service
+
+# Copy package.json files for workspace packages
+COPY shared/package*.json shared/
+COPY packages/notification-service/package*.json packages/notification-service/
 
 # Install production dependencies only
 RUN npm ci --only=production
@@ -35,8 +53,8 @@ RUN npm ci --only=production
 RUN apk --no-cache add curl
 
 # Copy built files
-COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
-COPY --from=builder /app/packages/notification-service/dist ./packages/notification-service/dist
+COPY --from=builder /app/shared/dist shared/dist
+COPY --from=builder /app/packages/notification-service/dist packages/notification-service/dist
 
 # Set environment variables
 ENV NODE_ENV=production

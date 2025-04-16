@@ -3,17 +3,29 @@ FROM node:18-alpine as builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY packages/shared/package*.json ./packages/shared/
-COPY packages/inventory-service/package*.json ./packages/inventory-service/
+# Copy root package.json and workspace files
+COPY package*.json .
+COPY package-lock.json .
+COPY tsconfig.json .
+
+# Create necessary directories
+RUN mkdir -p shared/config shared/entities shared/types shared/utils packages/inventory-service
+
+# Copy package.json files for workspace packages
+COPY shared/package*.json shared/
+COPY packages/inventory-service/package*.json packages/inventory-service/
 
 # Install dependencies
 RUN npm ci
 
-# Copy source code
-COPY packages/shared ./packages/shared
-COPY packages/inventory-service ./packages/inventory-service
+# Copy shared code
+COPY shared/config/ shared/config/
+COPY shared/entities/ shared/entities/
+COPY shared/types/ shared/types/
+COPY shared/utils/ shared/utils/
+COPY shared/tsconfig.json shared/
+COPY packages/inventory-service/src/ packages/inventory-service/src/
+COPY packages/inventory-service/tsconfig.json packages/inventory-service/
 
 # Build
 RUN npm run build --workspace=packages/inventory-service
@@ -23,10 +35,16 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY packages/shared/package*.json ./packages/shared/
-COPY packages/inventory-service/package*.json ./packages/inventory-service/
+# Copy root package.json and workspace files
+COPY package*.json .
+COPY package-lock.json .
+
+# Create necessary directories
+RUN mkdir -p shared/config shared/entities shared/types shared/utils packages/inventory-service
+
+# Copy package.json files for workspace packages
+COPY shared/package*.json shared/
+COPY packages/inventory-service/package*.json packages/inventory-service/
 
 # Install production dependencies only
 RUN npm ci --only=production
@@ -35,8 +53,8 @@ RUN npm ci --only=production
 RUN apk --no-cache add curl
 
 # Copy built files
-COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
-COPY --from=builder /app/packages/inventory-service/dist ./packages/inventory-service/dist
+COPY --from=builder /app/shared/dist shared/dist
+COPY --from=builder /app/packages/inventory-service/dist packages/inventory-service/dist
 
 # Set environment variables
 ENV NODE_ENV=production

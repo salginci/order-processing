@@ -9,7 +9,7 @@ COPY package-lock.json .
 COPY tsconfig.json .
 
 # Create necessary directories
-RUN mkdir -p shared packages/cart-service
+RUN mkdir -p shared/config shared/entities shared/types shared/utils packages/cart-service
 
 # Copy package.json files for workspace packages
 COPY shared/package*.json shared/
@@ -18,8 +18,11 @@ COPY packages/cart-service/package*.json packages/cart-service/
 # Install dependencies
 RUN npm ci
 
-# Copy source code
-COPY shared/src/ shared/src/
+# Copy shared code
+COPY shared/config/ shared/config/
+COPY shared/entities/ shared/entities/
+COPY shared/types/ shared/types/
+COPY shared/utils/ shared/utils/
 COPY shared/tsconfig.json shared/
 COPY packages/cart-service/src/ packages/cart-service/src/
 COPY packages/cart-service/tsconfig.json packages/cart-service/
@@ -37,7 +40,7 @@ COPY package*.json .
 COPY package-lock.json .
 
 # Create necessary directories
-RUN mkdir -p shared packages/cart-service
+RUN mkdir -p shared/config shared/entities shared/types shared/utils packages/cart-service
 
 # Copy package.json files for workspace packages
 COPY shared/package*.json shared/
