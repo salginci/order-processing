@@ -1,16 +1,46 @@
-FROM Dockerfile.base
+# Build stage
+FROM node:18-alpine as builder
 
-# Copy service source
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY packages/shared/package*.json ./packages/shared/
+COPY packages/order-service/package*.json ./packages/order-service/
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
+COPY packages/shared ./packages/shared
 COPY packages/order-service ./packages/order-service
 
-# Build service
-RUN cd packages/order-service && npm install && npm run build
+# Build
+RUN npm run build --workspace=packages/order-service
 
-# Set working directory to service
-WORKDIR /app/packages/order-service
+# Production stage
+FROM node:18-alpine
 
-# Expose port 8080
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY packages/shared/package*.json ./packages/shared/
+COPY packages/order-service/package*.json ./packages/order-service/
+
+# Install production dependencies only
+RUN npm ci --only=production
+
+# Copy built files
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/order-service/dist ./packages/order-service/dist
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=8080
+
+# Expose port
 EXPOSE 8080
 
-# Start service
-CMD ["node", "dist/index.js"] 
+# Start the service
+CMD ["node", "packages/order-service/dist/index.js"] 
