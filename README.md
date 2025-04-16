@@ -620,3 +620,22 @@ These diagrams illustrate:
 2. The order cancellation process
 3. Service dependencies and event relationships
 4. How idempotency is implemented in message processing 
+
+## Environment Variables
+
+Each service requires the following environment variables for database configuration:
+
+| Variable    | Description                     | Example Value     |
+|------------|---------------------------------|------------------|
+| DB_USER    | PostgreSQL database user        | postgres         |
+| DB_PASSWORD| PostgreSQL database password    | mysecretpassword |
+| DB_HOST    | PostgreSQL database host        | localhost        |
+| DB_PORT    | PostgreSQL database port        | 5432            |
+| DB_NAME    | PostgreSQL database name        | ecommerce        |
+
+Additional service-specific environment variables:
+
+| Service      | Variable          | Description                          | Example Value |
+|--------------|-------------------|--------------------------------------|--------------|
+| All Services | PUBSUB_EMULATOR_HOST | Google Cloud Pub/Sub emulator host | localhost:8085 |
+| All Services | PUBSUB_PROJECT_ID   | Google Cloud project ID             | my-project    |
