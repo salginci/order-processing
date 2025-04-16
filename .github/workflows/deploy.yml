@@ -88,6 +88,12 @@ jobs:
         ls -la /tmp/build-context/
         docker build \
           --no-cache \
+          --build-arg DB_HOST=$DB_HOST \
+          --build-arg DB_PORT=$DB_PORT \
+          --build-arg DB_USER=$DB_USER \
+          --build-arg DB_PASSWORD=$DB_PASSWORD \
+          --build-arg DB_NAME=$DB_NAME \
+          --build-arg NODE_ENV=production \
           -t gcr.io/$PROJECT_ID/cart-service:$GITHUB_SHA \
           -f packages/cart-service/Dockerfile \
           /tmp/build-context
@@ -99,6 +105,12 @@ jobs:
         echo "Building Order Service..."
         docker build \
           --no-cache \
+          --build-arg DB_HOST=$DB_HOST \
+          --build-arg DB_PORT=$DB_PORT \
+          --build-arg DB_USER=$DB_USER \
+          --build-arg DB_PASSWORD=$DB_PASSWORD \
+          --build-arg DB_NAME=$DB_NAME \
+          --build-arg NODE_ENV=production \
           -t gcr.io/$PROJECT_ID/order-service:$GITHUB_SHA \
           -f packages/order-service/Dockerfile \
           /tmp/build-context
@@ -110,6 +122,12 @@ jobs:
         echo "Building Inventory Service..."
         docker build \
           --no-cache \
+          --build-arg DB_HOST=$DB_HOST \
+          --build-arg DB_PORT=$DB_PORT \
+          --build-arg DB_USER=$DB_USER \
+          --build-arg DB_PASSWORD=$DB_PASSWORD \
+          --build-arg DB_NAME=$DB_NAME \
+          --build-arg NODE_ENV=production \
           -t gcr.io/$PROJECT_ID/inventory-service:$GITHUB_SHA \
           -f packages/inventory-service/Dockerfile \
           /tmp/build-context
@@ -121,6 +139,12 @@ jobs:
         echo "Building Notification Service..."
         docker build \
           --no-cache \
+          --build-arg DB_HOST=$DB_HOST \
+          --build-arg DB_PORT=$DB_PORT \
+          --build-arg DB_USER=$DB_USER \
+          --build-arg DB_PASSWORD=$DB_PASSWORD \
+          --build-arg DB_NAME=$DB_NAME \
+          --build-arg NODE_ENV=production \
           -t gcr.io/$PROJECT_ID/notification-service:$GITHUB_SHA \
           -f packages/notification-service/Dockerfile \
           /tmp/build-context

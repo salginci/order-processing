@@ -9,7 +9,7 @@ Pure-Event driven order proccess applicaiton built with microservices architectu
 - Customer Management
 - Notification System
 - Email Service
-- Cart Service
+- Cart Service manages item add 
 
 ## Project Architecture
 
