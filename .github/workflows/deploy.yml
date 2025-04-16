@@ -35,12 +35,18 @@ jobs:
         ls -la
         echo "\nShared directory contents:"
         ls -la shared/
-        echo "\nShared src directory contents:"
-        ls -la shared/src/
+        echo "\nShared config contents:"
+        ls -la shared/config/
+        echo "\nShared entities contents:"
+        ls -la shared/entities/
+        echo "\nShared types contents:"
+        ls -la shared/types/
+        echo "\nShared utils contents:"
+        ls -la shared/utils/
         echo "\nCart service contents:"
         ls -la packages/cart-service/
-        echo "\nPackage.json contents:"
-        cat package.json
+        echo "\nShared package.json contents:"
+        cat shared/package.json
         echo "\nCart service package.json contents:"
         cat packages/cart-service/package.json
 
