@@ -20,46 +20,102 @@ jobs:
     name: Setup, Build, Deploy
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
     steps:
     - name: Checkout
       uses: actions/checkout@v3
+
+    - name: Verify Environment Variables
+      run: |
+        if [ -z "$PROJECT_ID" ]; then
+          echo "Error: GCP_PROJECT_ID is not set"
+          exit 1
+        fi
+        if [ -z "$REGION" ]; then
+          echo "Error: GCP_REGION is not set"
+          exit 1
+        fi
+        echo "Project ID and Region are properly set"
+
+    - name: Google Auth
+      id: auth
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
       with:
         project_id: ${{ secrets.GCP_PROJECT_ID }}
-        service_account_key: ${{ secrets.GCP_SA_KEY }}
         install_components: 'gke-gcloud-auth-plugin'
 
+    - name: Verify Google Cloud Authentication
+      run: |
+        echo "Verifying Google Cloud Authentication..."
+        gcloud auth list
+        gcloud config list
+        gcloud projects list
+
     - name: Configure Docker
-      run: gcloud auth configure-docker
+      run: |
+        echo "Configuring Docker authentication..."
+        gcloud auth configure-docker --quiet
+        echo "Docker configuration complete"
 
     - name: Build and Push Cart Service
       run: |
+        echo "Building Cart Service..."
         cd packages/cart-service
+        if [ ! -f "Dockerfile" ]; then
+          echo "Error: Dockerfile not found in cart-service"
+          exit 1
+        fi
         docker build -t gcr.io/$PROJECT_ID/cart-service:$GITHUB_SHA .
+        echo "Pushing Cart Service image..."
         docker push gcr.io/$PROJECT_ID/cart-service:$GITHUB_SHA
 
     - name: Build and Push Order Service
       run: |
+        echo "Building Order Service..."
         cd packages/order-service
+        if [ ! -f "Dockerfile" ]; then
+          echo "Error: Dockerfile not found in order-service"
+          exit 1
+        fi
         docker build -t gcr.io/$PROJECT_ID/order-service:$GITHUB_SHA .
+        echo "Pushing Order Service image..."
         docker push gcr.io/$PROJECT_ID/order-service:$GITHUB_SHA
 
     - name: Build and Push Inventory Service
       run: |
+        echo "Building Inventory Service..."
         cd packages/inventory-service
+        if [ ! -f "Dockerfile" ]; then
+          echo "Error: Dockerfile not found in inventory-service"
+          exit 1
+        fi
         docker build -t gcr.io/$PROJECT_ID/inventory-service:$GITHUB_SHA .
+        echo "Pushing Inventory Service image..."
         docker push gcr.io/$PROJECT_ID/inventory-service:$GITHUB_SHA
 
     - name: Build and Push Notification Service
       run: |
+        echo "Building Notification Service..."
         cd packages/notification-service
+        if [ ! -f "Dockerfile" ]; then
+          echo "Error: Dockerfile not found in notification-service"
+          exit 1
+        fi
         docker build -t gcr.io/$PROJECT_ID/notification-service:$GITHUB_SHA .
+        echo "Pushing Notification Service image..."
         docker push gcr.io/$PROJECT_ID/notification-service:$GITHUB_SHA
 
     - name: Deploy Cart Service
       run: |
+        echo "Deploying Cart Service to Cloud Run..."
         gcloud run deploy cart-service \
           --image gcr.io/$PROJECT_ID/cart-service:$GITHUB_SHA \
           --region $REGION \
@@ -69,6 +125,7 @@ jobs:
 
     - name: Deploy Order Service
       run: |
+        echo "Deploying Order Service to Cloud Run..."
         gcloud run deploy order-service \
           --image gcr.io/$PROJECT_ID/order-service:$GITHUB_SHA \
           --region $REGION \
@@ -78,6 +135,7 @@ jobs:
 
     - name: Deploy Inventory Service
       run: |
+        echo "Deploying Inventory Service to Cloud Run..."
         gcloud run deploy inventory-service \
           --image gcr.io/$PROJECT_ID/inventory-service:$GITHUB_SHA \
           --region $REGION \
@@ -87,6 +145,7 @@ jobs:
 
     - name: Deploy Notification Service
       run: |
+        echo "Deploying Notification Service to Cloud Run..."
         gcloud run deploy notification-service \
           --image gcr.io/$PROJECT_ID/notification-service:$GITHUB_SHA \
           --region $REGION \
