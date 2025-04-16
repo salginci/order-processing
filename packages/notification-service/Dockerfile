@@ -6,7 +6,6 @@ WORKDIR /app
 # Copy root package.json and workspace files
 COPY package*.json .
 COPY package-lock.json .
-COPY tsconfig.json .
 
 # Create necessary directories
 RUN mkdir -p shared/config shared/entities shared/types shared/utils packages/notification-service
@@ -23,9 +22,7 @@ COPY shared/config/ shared/config/
 COPY shared/entities/ shared/entities/
 COPY shared/types/ shared/types/
 COPY shared/utils/ shared/utils/
-COPY shared/tsconfig.json shared/
 COPY packages/notification-service/src/ packages/notification-service/src/
-COPY packages/notification-service/tsconfig.json packages/notification-service/
 
 # Build
 RUN npm run build --workspace=packages/notification-service

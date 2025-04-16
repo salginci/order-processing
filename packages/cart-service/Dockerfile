@@ -6,7 +6,6 @@ WORKDIR /app
 # Copy root package.json and workspace files
 COPY package*.json .
 COPY package-lock.json .
-COPY tsconfig.json .
 
 # Create necessary directories
 RUN mkdir -p shared/config shared/entities shared/types shared/utils packages/cart-service
@@ -23,9 +22,7 @@ COPY shared/config/ shared/config/
 COPY shared/entities/ shared/entities/
 COPY shared/types/ shared/types/
 COPY shared/utils/ shared/utils/
-COPY shared/tsconfig.json shared/
 COPY packages/cart-service/src/ packages/cart-service/src/
-COPY packages/cart-service/tsconfig.json packages/cart-service/
 
 # Build
 RUN npm run build --workspace=packages/cart-service

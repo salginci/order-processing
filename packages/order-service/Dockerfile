@@ -6,7 +6,6 @@ WORKDIR /app
 # Copy root package.json and workspace files
 COPY package*.json .
 COPY package-lock.json .
-COPY tsconfig.json .
 
 # Create necessary directories
 RUN mkdir -p shared/config shared/entities shared/types shared/utils packages/order-service
@@ -23,9 +22,7 @@ COPY shared/config/ shared/config/
 COPY shared/entities/ shared/entities/
 COPY shared/types/ shared/types/
 COPY shared/utils/ shared/utils/
-COPY shared/tsconfig.json shared/
 COPY packages/order-service/src/ packages/order-service/src/
-COPY packages/order-service/tsconfig.json packages/order-service/
 
 # Build
 RUN npm run build --workspace=packages/order-service
