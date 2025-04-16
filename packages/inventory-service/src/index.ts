@@ -69,6 +69,17 @@ interface StockAvailableEvent {
   }>;
 }
 
+interface OrderCancelledEvent {
+  order_id: string;
+  customer_id: string;
+  cart_id: string;
+  reason: string;
+  items: Array<{
+    product_sku: string;
+    quantity: number;
+  }>;
+}
+
 // Initialize database
 async function checkProductsTable() {
   try {
@@ -172,10 +183,11 @@ async function initializeDatabase() {
   }
 }
 
-// Subscribe to order-requested topic
+// Subscribe to topics
 async function subscribeToTopics() {
   try {
     const orderRequestedSubscription = pubsub.subscription('inventory-service-order-requested');
+    const orderCancelledSubscription = pubsub.subscription('inventory-service-order-cancelled');
     
     orderRequestedSubscription.on('message', async (message) => {
       try {
@@ -250,6 +262,30 @@ async function subscribeToTopics() {
         message.ack();
       } catch (error) {
         console.error('Error processing order requested event:', error);
+        message.nack();
+      }
+    });
+
+    orderCancelledSubscription.on('message', async (message) => {
+      try {
+        const data = JSON.parse(message.data.toString()) as OrderCancelledEvent;
+        console.log('Received order cancelled event:', data);
+        
+        // Return items to inventory
+        for (const item of data.items) {
+          await pool.query(
+            `UPDATE inventory 
+             SET quantity = quantity + $1,
+                 last_updated = CURRENT_TIMESTAMP
+             WHERE product_sku = $2`,
+            [item.quantity, item.product_sku]
+          );
+          console.log(`Returned ${item.quantity} units of ${item.product_sku} to inventory`);
+        }
+
+        message.ack();
+      } catch (error) {
+        console.error('Error processing order cancelled event:', error);
         message.nack();
       }
     });

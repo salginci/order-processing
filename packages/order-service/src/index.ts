@@ -205,6 +205,7 @@ app.get('/orders/:id', async (req: express.Request, res: express.Response) => {
 // Cancel order
 app.put('/orders/:orderId/cancel', async (req, res) => {
   const { orderId } = req.params;
+  const { reason } = req.body;
 
   const client = await pool.connect();
   try {
@@ -224,6 +225,13 @@ app.put('/orders/:orderId/cancel', async (req, res) => {
       return res.status(400).json({ error: 'Order is already cancelled' });
     }
 
+    // Get order items
+    const itemsResult = await client.query(
+      'SELECT * FROM order_items WHERE order_id = $1',
+      [orderId]
+    );
+    const orderItems = itemsResult.rows;
+
     // Update order status
     await client.query('UPDATE orders SET status = $1 WHERE id = $2', ['cancelled', orderId]);
 
@@ -241,17 +249,26 @@ app.put('/orders/:orderId/cancel', async (req, res) => {
     // Commit transaction
     await client.query('COMMIT');
 
-    // Publish order cancelled event
+    // Publish order cancelled event with items
     await pubsub.topic('order.cancelled').publishMessage({
       data: Buffer.from(JSON.stringify({
-        event: 'order.canceled',
+        event: 'order.cancelled',
         order_id: order.id,
         customer_id: order.customer_id,
-        cart_id: cartResult.rows[0]?.cart_id
+        cart_id: cartResult.rows[0]?.cart_id,
+        reason: reason || 'Customer request',
+        items: orderItems.map(item => ({
+          product_sku: item.product_sku,
+          quantity: item.quantity
+        }))
       }))
     });
 
-    res.json({ ...order, status: 'cancelled' });
+    res.json({ 
+      ...order, 
+      status: 'cancelled',
+      items: orderItems
+    });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error cancelling order:', error);
