@@ -2,7 +2,7 @@
 
 Version: 1.0.0
 
-Pure-Event driven order proccess applicaiton built with microservices architecture:
+Pure-Event driven order proccess applicaiton built with microservices architecture :
 - Product Management
 - Order Processing
 - Inventory Management
