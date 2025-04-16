@@ -37,12 +37,13 @@ interface Order {
 
 interface OrderCreatedEvent {
   order_id: string;
-  cart_id: string;
   customer_id: string;
-  status: 'confirmed';
+  cart_id: string;
+  total_amount: number;
   items: Array<{
     product_sku: string;
     quantity: number;
+    price: number;
   }>;
 }
 
@@ -52,6 +53,7 @@ interface StockAvailableEvent {
   items: Array<{
     product_sku: string;
     quantity: number;
+    price: number;
   }>;
 }
 
@@ -350,12 +352,14 @@ async function subscribeToTopics() {
         const data = JSON.parse(message.data.toString()) as StockAvailableEvent;
         console.log('Received stock available event:', data);
         
-        // Create order
+        // Create order with initial total amount
+        const initialTotal = data.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        
         const orderResult = await pool.query(
           `INSERT INTO orders (customer_id, cart_id, status, total_amount)
            VALUES ($1, $2, $3, $4)
            RETURNING id`,
-          [data.customer_id, data.cart_id, 'created', 0] // Total amount will be updated after items
+          [data.customer_id, data.cart_id, 'created', initialTotal]
         );
 
         const orderId = orderResult.rows[0].id;
@@ -369,26 +373,17 @@ async function subscribeToTopics() {
           );
         }
 
-        // Calculate and update total amount
-        const totalResult = await pool.query(
-          `UPDATE orders 
-           SET total_amount = (
-             SELECT SUM(quantity * price)
-             FROM order_items
-             WHERE order_id = $1
-           )
-           WHERE id = $1
-           RETURNING *`,
-          [orderId]
-        );
-
         // Publish order created event
         const orderCreatedEvent: OrderCreatedEvent = {
           order_id: orderId.toString(),
           customer_id: data.customer_id,
           cart_id: data.cart_id,
-          total_amount: totalResult.rows[0].total_amount,
-          items: data.items
+          total_amount: initialTotal,
+          items: data.items.map(item => ({
+            product_sku: item.product_sku,
+            quantity: item.quantity,
+            price: item.price
+          }))
         };
 
         await orderCreatedTopic.publishMessage({
