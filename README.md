@@ -245,50 +245,64 @@ Service-specific documentation will be added as we refactor each service.
 
 ### Google Cloud Pub/Sub Setup
 
-To set up the required topics and subscriptions in Google Cloud Pub/Sub, you can use the provided script at `scripts/create-pubsub-resources.sh`. This script will create all necessary topics and subscriptions for the services to communicate.
+The system uses Google Cloud Pub/Sub for event-driven communication between services. To set up the required topics and subscriptions, use the provided script:
 
-Before running the script:
-1. Set your Google Cloud project ID
-2. Ensure you have the necessary permissions
-3. Make sure the Google Cloud SDK is installed
-
-Run the script with:
 ```bash
 ./scripts/create-pubsub-resources.sh
 ```
 
-The script will create:
-- Topics: `order-requested`, `stock-available`, `stock.rejected`, `order.created`, `order.cancelled`, `notification.requested`
-- Subscriptions for all services with appropriate naming conventions
-- Configured acknowledgment deadlines and other necessary settings
+This script will create all necessary topics and subscriptions with appropriate configurations. Make sure to:
+1. Set your Google Cloud project ID in the script
+2. Have the necessary permissions
+3. Have the Google Cloud SDK installed
 
 ### Idempotency Implementation
 
-The system implements idempotency to ensure that messages are processed exactly once, even in the case of retries or duplicate deliveries. This is achieved through:
+The system implements idempotency to ensure messages are processed exactly once, even in case of retries or duplicate deliveries. This is crucial for maintaining data consistency across services.
 
-1. **Database Schema**:
-   - Each service maintains a `processed_messages` table
-   - Records message ID, event type, service name, and processing status
-   - Uses a unique constraint on `(message_id, service_name)` to prevent duplicates
+#### Database Schema
 
-2. **Processing Flow**:
-   - Before processing a message, check if it's already been processed
-   - If processed, acknowledge and skip
-   - If not processed, proceed with business logic
-   - Record processing status (success/failed) after completion
+Each service maintains a `processed_messages` table with the following structure:
+```sql
+CREATE TABLE processed_messages (
+  id SERIAL PRIMARY KEY,
+  message_id VARCHAR(255) NOT NULL,
+  event_type VARCHAR(100) NOT NULL,
+  service_name VARCHAR(100) NOT NULL,
+  status VARCHAR(50) NOT NULL,
+  processed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  error_message TEXT,
+  UNIQUE(message_id, service_name)
+);
+```
+
+#### Processing Flow
+
+1. **Message Reception**:
+   - Service receives a message from Pub/Sub
+   - Checks if message ID exists in `processed_messages` table
+   - If exists, acknowledges and skips processing
+   - If not, proceeds with business logic
+
+2. **Message Processing**:
+   - Executes business logic
+   - On success: marks message as processed with 'success' status
+   - On failure: marks message as processed with 'failed' status and error details
 
 3. **Error Handling**:
-   - Failed messages are marked as failed with error details
-   - Messages can be retried safely due to idempotency checks
-   - Database errors during idempotency checks default to safe behavior
+   - Failed messages are marked with error details
+   - Messages can be safely retried due to idempotency checks
+   - Database errors during checks default to safe behavior
 
-4. **Benefits**:
-   - Prevents duplicate processing of messages
-   - Enables safe retries of failed messages
-   - Provides audit trail of message processing
-   - Maintains data consistency across services
+#### Benefits
 
-Example of idempotency check in a service:
+- **Data Consistency**: Prevents duplicate processing of messages
+- **Reliability**: Enables safe retries of failed messages
+- **Audit Trail**: Maintains record of message processing history
+- **Error Recovery**: Provides visibility into failed message processing
+
+#### Example Implementation
+
 ```typescript
 async function handleMessage(message) {
   // Check if message is already processed
@@ -317,6 +331,31 @@ async function handleMessage(message) {
   }
 }
 ```
+
+### Event Flow
+
+The system uses the following event flow for order processing:
+
+1. **Order Requested**:
+   - Cart Service publishes `order-requested` event
+   - Inventory Service subscribes and checks stock
+
+2. **Stock Check**:
+   - If stock available: publishes `stock-available` event
+   - If stock insufficient: publishes `stock.rejected` event
+
+3. **Order Creation**:
+   - Order Service subscribes to `stock-available`
+   - Creates order and publishes `order.created` event
+
+4. **Order Cancellation**:
+   - Order Service handles cancellation
+   - Publishes `order.cancelled` event
+   - Inventory Service returns items to stock
+
+5. **Notifications**:
+   - Notification Service subscribes to relevant events
+   - Sends appropriate notifications to customers
 
 ### Google Cloud Pub/Sub Choice
 We chose Google Cloud Pub/Sub as our message queue implementation for several reasons:
@@ -414,3 +453,80 @@ If we were to use Kafka, the implementation would differ in these ways:
    - Pub/Sub: Managed service, minimal setup
    - RabbitMQ: Requires cluster management
    - Kafka: Complex setup, requires Zookeeper 
+
+### Event Flow Diagrams
+
+#### Order Processing Flow
+```mermaid
+sequenceDiagram
+    participant Cart as Cart Service
+    participant Inventory as Inventory Service
+    participant Order as Order Service
+    participant Notification as Notification Service
+
+    Cart->>Inventory: order-requested
+    alt Stock Available
+        Inventory->>Order: stock-available
+        Order->>Notification: order.created
+    else Stock Insufficient
+        Inventory->>Cart: stock.rejected
+        Inventory->>Notification: stock.rejected
+    end
+```
+
+#### Order Cancellation Flow
+```mermaid
+sequenceDiagram
+    participant Order as Order Service
+    participant Inventory as Inventory Service
+    participant Notification as Notification Service
+
+    Order->>Inventory: order.cancelled
+    Order->>Notification: order.cancelled
+    Inventory->>Inventory: Return items to stock
+```
+
+#### Service Dependencies
+```mermaid
+graph TD
+    Cart[Cart Service]
+    Inventory[Inventory Service]
+    Order[Order Service]
+    Notification[Notification Service]
+    Email[Email Service]
+    Push[Push Service]
+
+    Cart -->|order-requested| Inventory
+    Inventory -->|stock-available| Order
+    Inventory -->|stock.rejected| Cart
+    Inventory -->|stock.rejected| Notification
+    Order -->|order.created| Notification
+    Order -->|order.cancelled| Inventory
+    Order -->|order.cancelled| Notification
+    Notification -->|email| Email
+    Notification -->|push| Push
+```
+
+#### Message Processing with Idempotency
+```mermaid
+sequenceDiagram
+    participant PubSub as Pub/Sub
+    participant Service as Microservice
+    participant DB as Database
+
+    PubSub->>Service: Message Received
+    Service->>DB: Check processed_messages
+    alt Message Not Processed
+        Service->>Service: Process Business Logic
+        Service->>DB: Mark as Processed
+        Service->>PubSub: ACK
+    else Message Already Processed
+        Service->>PubSub: ACK
+    end
+```
+
+These diagrams illustrate:
+1. The main order processing flow
+2. The order cancellation process
+3. Service dependencies and event relationships
+4. How idempotency is implemented in message processing 
