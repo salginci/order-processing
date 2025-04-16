@@ -9,7 +9,7 @@ COPY shared/package*.json ./shared/
 COPY packages/cart-service/package*.json ./packages/cart-service/
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
 # Copy source code
 COPY shared ./shared
@@ -28,8 +28,8 @@ COPY package*.json ./
 COPY shared/package*.json ./shared/
 COPY packages/cart-service/package*.json ./packages/cart-service/
 
-# Install production dependencies only
-RUN npm ci --only=production
+# Install dependencies
+RUN npm install
 
 # Copy built files
 COPY --from=builder /app/shared/dist ./shared/dist
