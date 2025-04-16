@@ -162,13 +162,15 @@ This project is built using a monorepo architecture, where all microservices are
 
 ## Event Flow
 
-| Event Name | Published By | Subscribed By | Description |
-|------------|-------------|---------------|-------------|
-| `order-requested` | Cart Service | Inventory Service | Triggered when a cart is converted to order. Contains cart and item details. |
-| `stock.rejected` | Inventory Service | Cart Service, Notification Service, Push Service | Published when inventory check fails. Updates cart status and notifies user. |
-| `stock-available` | Inventory Service | Order Service | Published when inventory is sufficient. Triggers order creation. |
-| `order.created` | Order Service | Notification Service, Email Service, Push Service | Published when an order is created. Triggers notifications. |
-| `order.cancelled` | Order Service | Notification Service, Email Service, Push Service | Published when an order is cancelled. Triggers notifications. |
+| Event Name | Published By | Subscriber | Subscriber Action |
+|------------|-------------|------------|------------------|
+| `order-requested` | Cart Service | Inventory Service | Checks inventory levels for each item in the cart. If sufficient, publishes `stock-available` event. If insufficient, publishes `stock.rejected` event. |
+| `stock.rejected` | Inventory Service | Cart Service | Updates cart status to 'stock-unavailable' and unlocks the cart. |
+| `stock.rejected` | Inventory Service | Notification Service | Creates both email and push notifications to inform the customer about insufficient stock. |
+| `stock-available` | Inventory Service | Order Service | Creates a new order with status 'confirmed' and publishes `order.created` event. |
+| `order.created` | Order Service | Notification Service | Creates both email and push notifications to confirm the order creation. |
+| `order.cancelled` | Order Service | Inventory Service | Returns the cancelled order items back to inventory stock. |
+| `order.cancelled` | Order Service | Notification Service | Creates both email and push notifications to inform about the order cancellation. |
 
 ## Services
 
@@ -221,13 +223,15 @@ Service-specific documentation will be added as we refactor each service.
 
 ### Event Flow
 
-| Event Name | Published By | Subscribed By | Description |
-|------------|-------------|---------------|-------------|
-| `order-requested` | Cart Service | Inventory Service | Triggered when a cart is converted to order. Contains cart and item details. |
-| `stock.rejected` | Inventory Service | Cart Service, Notification Service | Published when inventory check fails. Updates cart status and notifies user. |
-| `stock-available` | Inventory Service | Order Service | Published when inventory is sufficient. Triggers order creation. |
-| `order.created` | Order Service | Notification Service | Published when an order is created. Triggers notifications. |
-| `order.cancelled` | Order Service | Notification Service | Published when an order is cancelled. Triggers notifications. |
+| Event Name | Published By | Subscriber | Subscriber Action |
+|------------|-------------|------------|------------------|
+| `order-requested` | Cart Service | Inventory Service | Checks inventory levels for each item in the cart. If sufficient, publishes `stock-available` event. If insufficient, publishes `stock.rejected` event. |
+| `stock.rejected` | Inventory Service | Cart Service | Updates cart status to 'stock-unavailable' and unlocks the cart. |
+| `stock.rejected` | Inventory Service | Notification Service | Creates both email and push notifications to inform the customer about insufficient stock. |
+| `stock-available` | Inventory Service | Order Service | Creates a new order with status 'confirmed' and publishes `order.created` event. |
+| `order.created` | Order Service | Notification Service | Creates both email and push notifications to confirm the order creation. |
+| `order.cancelled` | Order Service | Inventory Service | Returns the cancelled order items back to inventory stock. |
+| `order.cancelled` | Order Service | Notification Service | Creates both email and push notifications to inform about the order cancellation. |
 
 ### Notification Flow
 
