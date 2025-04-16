@@ -140,9 +140,25 @@ async function initializeDatabase() {
       )
     `);
 
-    // Create index
+    // Create processed_messages table
     await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_inventory_product_sku ON inventory(product_sku)
+      CREATE TABLE IF NOT EXISTS processed_messages (
+        id SERIAL PRIMARY KEY,
+        message_id VARCHAR(255) NOT NULL,
+        event_type VARCHAR(100) NOT NULL,
+        service_name VARCHAR(100) NOT NULL,
+        status VARCHAR(50) NOT NULL,
+        processed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        error_message TEXT,
+        UNIQUE(message_id, service_name)
+      )
+    `);
+
+    // Create indexes
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_inventory_product_sku ON inventory(product_sku);
+      CREATE INDEX IF NOT EXISTS idx_processed_messages_message_id ON processed_messages(message_id);
+      CREATE INDEX IF NOT EXISTS idx_processed_messages_service_name ON processed_messages(service_name);
     `);
 
     // Wait for sample products to exist
@@ -183,6 +199,40 @@ async function initializeDatabase() {
   }
 }
 
+// Add idempotency handling functions
+async function isMessageProcessed(messageId: string): Promise<boolean> {
+  try {
+    const result = await pool.query(
+      'SELECT id FROM processed_messages WHERE message_id = $1 AND service_name = $2',
+      [messageId, 'inventory-service']
+    );
+    return result.rows.length > 0;
+  } catch (error) {
+    console.error('Error checking if message is processed:', error);
+    // If we can't check, assume message is not processed to be safe
+    return false;
+  }
+}
+
+async function markMessageProcessed(
+  messageId: string, 
+  eventType: string, 
+  status: 'success' | 'failed',
+  errorMessage?: string
+): Promise<void> {
+  try {
+    await pool.query(
+      `INSERT INTO processed_messages 
+       (message_id, event_type, service_name, status, error_message)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [messageId, eventType, 'inventory-service', status, errorMessage]
+    );
+  } catch (error) {
+    console.error('Error marking message as processed:', error);
+    // Don't throw here as this is a secondary operation
+  }
+}
+
 // Subscribe to topics
 async function subscribeToTopics() {
   try {
@@ -191,6 +241,13 @@ async function subscribeToTopics() {
     
     orderRequestedSubscription.on('message', async (message) => {
       try {
+        // Check if message is already processed
+        if (await isMessageProcessed(message.id)) {
+          console.log('Message already processed, skipping:', message.id);
+          message.ack();
+          return;
+        }
+
         const data = JSON.parse(message.data.toString()) as OrderRequestedEvent;
         console.log('Received order requested event:', data);
         
@@ -259,15 +316,31 @@ async function subscribeToTopics() {
           });
         }
 
+        // Mark message as processed on success
+        await markMessageProcessed(message.id, 'order-requested', 'success');
         message.ack();
       } catch (error) {
         console.error('Error processing order requested event:', error);
+        // Mark message as failed
+        await markMessageProcessed(
+          message.id, 
+          'order-requested', 
+          'failed', 
+          error instanceof Error ? error.message : 'Unknown error'
+        );
         message.nack();
       }
     });
 
     orderCancelledSubscription.on('message', async (message) => {
       try {
+        // Check if message is already processed
+        if (await isMessageProcessed(message.id)) {
+          console.log('Message already processed, skipping:', message.id);
+          message.ack();
+          return;
+        }
+
         const data = JSON.parse(message.data.toString()) as OrderCancelledEvent;
         console.log('Received order cancelled event:', data);
         
@@ -283,9 +356,18 @@ async function subscribeToTopics() {
           console.log(`Returned ${item.quantity} units of ${item.product_sku} to inventory`);
         }
 
+        // Mark message as processed on success
+        await markMessageProcessed(message.id, 'order-cancelled', 'success');
         message.ack();
       } catch (error) {
         console.error('Error processing order cancelled event:', error);
+        // Mark message as failed
+        await markMessageProcessed(
+          message.id, 
+          'order-cancelled', 
+          'failed', 
+          error instanceof Error ? error.message : 'Unknown error'
+        );
         message.nack();
       }
     });

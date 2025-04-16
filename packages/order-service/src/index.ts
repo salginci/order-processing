@@ -62,33 +62,88 @@ async function initializeDatabase() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS orders (
         id SERIAL PRIMARY KEY,
-        customer_id VARCHAR(255) NOT NULL,
+        customer_id VARCHAR(50) NOT NULL,
+        cart_id VARCHAR(50) NOT NULL,
         status VARCHAR(50) NOT NULL DEFAULT 'pending',
         total_amount DECIMAL(10,2) NOT NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
+      )
+    `);
 
+    // Create order_items table
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS order_items (
         id SERIAL PRIMARY KEY,
         order_id INTEGER NOT NULL,
         product_sku VARCHAR(50) NOT NULL,
         quantity INTEGER NOT NULL,
         price DECIMAL(10,2) NOT NULL,
-        FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
-        FOREIGN KEY (product_sku) REFERENCES products(sku) ON DELETE RESTRICT
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id);
-      CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
-      CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
-      CREATE INDEX IF NOT EXISTS idx_order_items_product_sku ON order_items(product_sku);
+        FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+      )
     `);
 
-    console.log('Order database initialized successfully');
+    // Create processed_messages table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS processed_messages (
+        id SERIAL PRIMARY KEY,
+        message_id VARCHAR(255) NOT NULL,
+        event_type VARCHAR(100) NOT NULL,
+        service_name VARCHAR(100) NOT NULL,
+        status VARCHAR(50) NOT NULL,
+        processed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        error_message TEXT,
+        UNIQUE(message_id, service_name)
+      )
+    `);
+
+    // Create indexes
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id);
+      CREATE INDEX IF NOT EXISTS idx_orders_cart_id ON orders(cart_id);
+      CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
+      CREATE INDEX IF NOT EXISTS idx_processed_messages_message_id ON processed_messages(message_id);
+      CREATE INDEX IF NOT EXISTS idx_processed_messages_service_name ON processed_messages(service_name);
+    `);
+
+    console.log('Order service database initialized successfully');
   } catch (error) {
-    console.error('Error initializing order database:', error);
+    console.error('Error initializing order service database:', error);
     process.exit(1);
+  }
+}
+
+// Add idempotency handling functions
+async function isMessageProcessed(messageId: string): Promise<boolean> {
+  try {
+    const result = await pool.query(
+      'SELECT id FROM processed_messages WHERE message_id = $1 AND service_name = $2',
+      [messageId, 'order-service']
+    );
+    return result.rows.length > 0;
+  } catch (error) {
+    console.error('Error checking if message is processed:', error);
+    // If we can't check, assume message is not processed to be safe
+    return false;
+  }
+}
+
+async function markMessageProcessed(
+  messageId: string, 
+  eventType: string, 
+  status: 'success' | 'failed',
+  errorMessage?: string
+): Promise<void> {
+  try {
+    await pool.query(
+      `INSERT INTO processed_messages 
+       (message_id, event_type, service_name, status, error_message)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [messageId, eventType, 'order-service', status, errorMessage]
+    );
+  } catch (error) {
+    console.error('Error marking message as processed:', error);
+    // Don't throw here as this is a secondary operation
   }
 }
 
@@ -285,36 +340,73 @@ async function subscribeToTopics() {
     
     stockAvailableSubscription.on('message', async (message) => {
       try {
+        // Check if message is already processed
+        if (await isMessageProcessed(message.id)) {
+          console.log('Message already processed, skipping:', message.id);
+          message.ack();
+          return;
+        }
+
         const data = JSON.parse(message.data.toString()) as StockAvailableEvent;
         console.log('Received stock available event:', data);
         
-        // Create new order
-        const result = await pool.query(
-          `INSERT INTO orders (cart_id, customer_id, status)
-           VALUES ($1, $2, $3)
-           RETURNING *`,
-          [data.cart_id, data.customer_id, 'confirmed']
+        // Create order
+        const orderResult = await pool.query(
+          `INSERT INTO orders (customer_id, cart_id, status, total_amount)
+           VALUES ($1, $2, $3, $4)
+           RETURNING id`,
+          [data.customer_id, data.cart_id, 'created', 0] // Total amount will be updated after items
         );
-        
-        const order = result.rows[0];
-        
-        // Publish order.created event
+
+        const orderId = orderResult.rows[0].id;
+
+        // Add order items
+        for (const item of data.items) {
+          await pool.query(
+            `INSERT INTO order_items (order_id, product_sku, quantity, price)
+             VALUES ($1, $2, $3, $4)`,
+            [orderId, item.product_sku, item.quantity, item.price]
+          );
+        }
+
+        // Calculate and update total amount
+        const totalResult = await pool.query(
+          `UPDATE orders 
+           SET total_amount = (
+             SELECT SUM(quantity * price)
+             FROM order_items
+             WHERE order_id = $1
+           )
+           WHERE id = $1
+           RETURNING *`,
+          [orderId]
+        );
+
+        // Publish order created event
         const orderCreatedEvent: OrderCreatedEvent = {
-          order_id: order.id,
-          cart_id: order.cart_id,
-          customer_id: order.customer_id,
-          status: 'confirmed',
+          order_id: orderId.toString(),
+          customer_id: data.customer_id,
+          cart_id: data.cart_id,
+          total_amount: totalResult.rows[0].total_amount,
           items: data.items
         };
-        
+
         await orderCreatedTopic.publishMessage({
           data: Buffer.from(JSON.stringify(orderCreatedEvent))
         });
-        
-        console.log('Created order and published order.created event:', orderCreatedEvent);
+
+        // Mark message as processed on success
+        await markMessageProcessed(message.id, 'stock-available', 'success');
         message.ack();
       } catch (error) {
         console.error('Error processing stock available event:', error);
+        // Mark message as failed
+        await markMessageProcessed(
+          message.id, 
+          'stock-available', 
+          'failed', 
+          error instanceof Error ? error.message : 'Unknown error'
+        );
         message.nack();
       }
     });

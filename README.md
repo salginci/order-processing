@@ -1,6 +1,6 @@
 # E-commerce Microservices Platform
 
-A scalable e-commerce platform built with microservices architecture, featuring:
+Pure-Event driven order proccess applicaiton built with microservices architecture, featuring:
 - Product Management
 - Order Processing
 - Inventory Management
@@ -11,7 +11,7 @@ A scalable e-commerce platform built with microservices architecture, featuring:
 
 ## Project Architecture
 
-This project is built using a monorepo architecture, where all microservices are managed in a single repository. We chose this approach for several key benefits:
+This project is built using a monorepo architecture, where all microservices are managed in a single repository. I chose this approach for several key benefits:
 
 1. **Unified Development Experience**
    - Single repository for all services
@@ -216,7 +216,7 @@ Service-specific documentation will be added as we refactor each service.
 | Order Service | 3000 | `GET /orders`, `GET /orders/:id`, `POST /orders`, `PUT /orders/:id`, `DELETE /orders/:id`, `GET /` |
 | Inventory Service | 3002 | `GET /inventory`, `GET /inventory/:sku`, `POST /inventory`, `PUT /inventory/:sku`, `DELETE /inventory/:sku`, `GET /` |
 | Customer Service | 3006 | `GET /customers`, `POST /customers`, `GET /customers/:id`, `PUT /customers/:id`, `DELETE /customers/:id`, `GET /` |
-| Notification Service | 3002 | `GET /` |
+| Notification Service | 3003 | `GET /notifications`, `GET /notifications/:id`, `POST /notifications`, `GET /` |
 | Email Service | 3004 | `GET /` |
 | Push Service | 3007 | `GET /`, `GET /notifications/:customerId` |
 | Cart Service | 3005 | `GET /`, `POST /cart/items`, `DELETE /cart/items/:product_sku`, `GET /cart`, `POST /cart/convert-to-order` |
@@ -227,7 +227,7 @@ Service-specific documentation will be added as we refactor each service.
 |------------|-------------|------------|------------------|
 | `order-requested` | Cart Service | Inventory Service | Checks inventory levels for each item in the cart. If sufficient, publishes `stock-available` event. If insufficient, publishes `stock.rejected` event. |
 | `stock.rejected` | Inventory Service | Cart Service | Updates cart status to 'stock-unavailable' and unlocks the cart. |
-| `stock.rejected` | Inventory Service | Notification Service | Creates both email and push notifications to inform the customer about insufficient stock. |
+| `stock.rejected` | Inventory Service | Notification Service | Creates both email and push notifications to inform the customer about insufficient stock. Additionaly stock manager can be notified |
 | `stock-available` | Inventory Service | Order Service | Creates a new order with status 'confirmed' and publishes `order.created` event. |
 | `order.created` | Order Service | Notification Service | Creates both email and push notifications to confirm the order creation. |
 | `order.cancelled` | Order Service | Inventory Service | Returns the cancelled order items back to inventory stock. |
@@ -239,4 +239,178 @@ Service-specific documentation will be added as we refactor each service.
 |-------|---------------|----------------------------|
 | `order.created` | Order Service | Creates both email and push notifications for order confirmation |
 | `order.cancelled` | Order Service | Creates both email and push notifications for order cancellation |
-| `stock.rejected` | Inventory Service | Creates both email and push notifications for stock unavailability | 
+| `stock.rejected` | Inventory Service | Creates both email and push notifications for stock unavailability |
+
+## Message Queue Implementation
+
+### Google Cloud Pub/Sub Setup
+
+To set up the required topics and subscriptions in Google Cloud Pub/Sub, you can use the provided script at `scripts/create-pubsub-resources.sh`. This script will create all necessary topics and subscriptions for the services to communicate.
+
+Before running the script:
+1. Set your Google Cloud project ID
+2. Ensure you have the necessary permissions
+3. Make sure the Google Cloud SDK is installed
+
+Run the script with:
+```bash
+./scripts/create-pubsub-resources.sh
+```
+
+The script will create:
+- Topics: `order-requested`, `stock-available`, `stock.rejected`, `order.created`, `order.cancelled`, `notification.requested`
+- Subscriptions for all services with appropriate naming conventions
+- Configured acknowledgment deadlines and other necessary settings
+
+### Idempotency Implementation
+
+The system implements idempotency to ensure that messages are processed exactly once, even in the case of retries or duplicate deliveries. This is achieved through:
+
+1. **Database Schema**:
+   - Each service maintains a `processed_messages` table
+   - Records message ID, event type, service name, and processing status
+   - Uses a unique constraint on `(message_id, service_name)` to prevent duplicates
+
+2. **Processing Flow**:
+   - Before processing a message, check if it's already been processed
+   - If processed, acknowledge and skip
+   - If not processed, proceed with business logic
+   - Record processing status (success/failed) after completion
+
+3. **Error Handling**:
+   - Failed messages are marked as failed with error details
+   - Messages can be retried safely due to idempotency checks
+   - Database errors during idempotency checks default to safe behavior
+
+4. **Benefits**:
+   - Prevents duplicate processing of messages
+   - Enables safe retries of failed messages
+   - Provides audit trail of message processing
+   - Maintains data consistency across services
+
+Example of idempotency check in a service:
+```typescript
+async function handleMessage(message) {
+  // Check if message is already processed
+  if (await isMessageProcessed(message.id)) {
+    console.log('Message already processed, skipping:', message.id);
+    message.ack();
+    return;
+  }
+
+  try {
+    // Process message
+    await processBusinessLogic(message.data);
+    
+    // Mark as processed on success
+    await markMessageProcessed(message.id, 'event-type', 'success');
+    message.ack();
+  } catch (error) {
+    // Mark as failed on error
+    await markMessageProcessed(
+      message.id, 
+      'event-type', 
+      'failed', 
+      error.message
+    );
+    message.nack();
+  }
+}
+```
+
+### Google Cloud Pub/Sub Choice
+We chose Google Cloud Pub/Sub as our message queue implementation for several reasons:
+1. **Cloud-Native Integration**: Since we're deploying our services on Google Cloud Platform, Pub/Sub provides seamless integration with other GCP services and CI/CD pipelines.
+2. **Managed Service**: Pub/Sub is a fully managed service, reducing operational overhead and providing automatic scaling.
+3. **Global Availability**: Pub/Sub offers global message routing and low-latency delivery across regions.
+4. **Built-in Features**: Includes message ordering, exactly-once delivery, and dead letter queues out of the box.
+
+### Alternative Implementations
+
+#### RabbitMQ Implementation
+If we were to use RabbitMQ, the implementation would differ in these ways:
+1. **Connection Management**:
+   ```typescript
+   // Instead of PubSub initialization
+   const connection = await amqp.connect('amqp://localhost');
+   const channel = await connection.createChannel();
+   ```
+2. **Topic Declaration**:
+   ```typescript
+   // Instead of pubsub.topic()
+   await channel.assertExchange('order-requested', 'topic', { durable: true });
+   ```
+3. **Message Publishing**:
+   ```typescript
+   // Instead of topic.publishMessage()
+   channel.publish('order-requested', 'order.created', Buffer.from(JSON.stringify(data)));
+   ```
+4. **Message Consumption**:
+   ```typescript
+   // Instead of subscription.on('message')
+   channel.consume('order-queue', async (message) => {
+     if (message) {
+       const data = JSON.parse(message.content.toString());
+       // Process message
+       channel.ack(message);
+     }
+   });
+   ```
+
+#### Kafka Implementation
+If we were to use Kafka, the implementation would differ in these ways:
+1. **Producer Setup**:
+   ```typescript
+   // Instead of PubSub initialization
+   const producer = kafka.producer();
+   await producer.connect();
+   ```
+2. **Topic Creation**:
+   ```typescript
+   // Instead of pubsub.topic()
+   const admin = kafka.admin();
+   await admin.createTopics({
+     topics: [{ topic: 'order-requested' }],
+   });
+   ```
+3. **Message Publishing**:
+   ```typescript
+   // Instead of topic.publishMessage()
+   await producer.send({
+     topic: 'order-requested',
+     messages: [{ value: JSON.stringify(data) }],
+   });
+   ```
+4. **Message Consumption**:
+   ```typescript
+   // Instead of subscription.on('message')
+   const consumer = kafka.consumer({ groupId: 'order-group' });
+   await consumer.subscribe({ topic: 'order-requested' });
+   await consumer.run({
+     eachMessage: async ({ message }) => {
+       const data = JSON.parse(message.value.toString());
+       // Process message
+     },
+   });
+   ```
+
+### Key Differences
+1. **Message Ordering**:
+   - Pub/Sub: Built-in ordering with message ordering keys
+   - RabbitMQ: Requires careful queue configuration
+   - Kafka: Natural ordering within partitions
+
+2. **Scalability**:
+   - Pub/Sub: Automatic scaling
+   - RabbitMQ: Manual cluster setup
+   - Kafka: Partition-based scaling
+
+3. **Message Retention**:
+   - Pub/Sub: Configurable retention (default 7 days)
+   - RabbitMQ: Memory/disk-based
+   - Kafka: Configurable retention period
+
+4. **Deployment Complexity**:
+   - Pub/Sub: Managed service, minimal setup
+   - RabbitMQ: Requires cluster management
+   - Kafka: Complex setup, requires Zookeeper 
