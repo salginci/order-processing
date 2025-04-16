@@ -1,16 +1,46 @@
-FROM Dockerfile.base
+# Build stage
+FROM node:18-alpine as builder
 
-# Copy service source
-COPY packages/inventory-service ./packages/inventory-service
+WORKDIR /app
 
-# Build service
-RUN cd packages/inventory-service && npm install && npm run build
+# Copy package files
+COPY package*.json ./
+COPY shared/package*.json ./shared/
+COPY packages/inventory-service/package*.json ./packages/inventory-service/
 
-# Set working directory to service
-WORKDIR /app/packages/inventory-service
+# Install dependencies
+RUN npm install
 
-# Expose port 8080
+# Copy source code
+COPY shared/ ./shared/
+COPY packages/inventory-service/ ./packages/inventory-service/
+
+# Build
+RUN npm run build --workspace=packages/inventory-service
+
+# Production stage
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY shared/package*.json ./shared/
+COPY packages/inventory-service/package*.json ./packages/inventory-service/
+
+# Install dependencies
+RUN npm install
+
+# Copy shared and built inventory service
+COPY shared/ ./shared/
+COPY --from=builder /app/packages/inventory-service/dist ./packages/inventory-service/dist
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=8080
+
+# Expose port
 EXPOSE 8080
 
-# Start service
-CMD ["node", "dist/index.js"] 
+# Start the service
+CMD ["node", "packages/inventory-service/dist/index.js"] 
