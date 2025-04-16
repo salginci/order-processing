@@ -28,18 +28,6 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Verify Environment Variables
-      run: |
-        if [ -z "$PROJECT_ID" ]; then
-          echo "Error: GCP_PROJECT_ID is not set"
-          exit 1
-        fi
-        if [ -z "$REGION" ]; then
-          echo "Error: GCP_REGION is not set"
-          exit 1
-        fi
-        echo "Project ID and Region are properly set"
-
     - name: Google Auth
       id: auth
       uses: google-github-actions/auth@v1
@@ -68,48 +56,28 @@ jobs:
     - name: Build and Push Cart Service
       run: |
         echo "Building Cart Service..."
-        cd packages/cart-service
-        if [ ! -f "Dockerfile" ]; then
-          echo "Error: Dockerfile not found in cart-service"
-          exit 1
-        fi
-        docker build -t gcr.io/$PROJECT_ID/cart-service:$GITHUB_SHA .
+        docker build -t gcr.io/$PROJECT_ID/cart-service:$GITHUB_SHA -f packages/cart-service/Dockerfile .
         echo "Pushing Cart Service image..."
         docker push gcr.io/$PROJECT_ID/cart-service:$GITHUB_SHA
 
     - name: Build and Push Order Service
       run: |
         echo "Building Order Service..."
-        cd packages/order-service
-        if [ ! -f "Dockerfile" ]; then
-          echo "Error: Dockerfile not found in order-service"
-          exit 1
-        fi
-        docker build -t gcr.io/$PROJECT_ID/order-service:$GITHUB_SHA .
+        docker build -t gcr.io/$PROJECT_ID/order-service:$GITHUB_SHA -f packages/order-service/Dockerfile .
         echo "Pushing Order Service image..."
         docker push gcr.io/$PROJECT_ID/order-service:$GITHUB_SHA
 
     - name: Build and Push Inventory Service
       run: |
         echo "Building Inventory Service..."
-        cd packages/inventory-service
-        if [ ! -f "Dockerfile" ]; then
-          echo "Error: Dockerfile not found in inventory-service"
-          exit 1
-        fi
-        docker build -t gcr.io/$PROJECT_ID/inventory-service:$GITHUB_SHA .
+        docker build -t gcr.io/$PROJECT_ID/inventory-service:$GITHUB_SHA -f packages/inventory-service/Dockerfile .
         echo "Pushing Inventory Service image..."
         docker push gcr.io/$PROJECT_ID/inventory-service:$GITHUB_SHA
 
     - name: Build and Push Notification Service
       run: |
         echo "Building Notification Service..."
-        cd packages/notification-service
-        if [ ! -f "Dockerfile" ]; then
-          echo "Error: Dockerfile not found in notification-service"
-          exit 1
-        fi
-        docker build -t gcr.io/$PROJECT_ID/notification-service:$GITHUB_SHA .
+        docker build -t gcr.io/$PROJECT_ID/notification-service:$GITHUB_SHA -f packages/notification-service/Dockerfile .
         echo "Pushing Notification Service image..."
         docker push gcr.io/$PROJECT_ID/notification-service:$GITHUB_SHA
 
