@@ -25,7 +25,7 @@ COPY shared/utils/ shared/utils/
 COPY packages/cart-service/tsconfig.json packages/cart-service/
 COPY packages/cart-service/src/ packages/cart-service/src/
 
-# Build
+# Build service
 RUN npm run build --workspace=packages/cart-service
 
 # Production stage
@@ -50,8 +50,10 @@ RUN npm install
 # Install curl for healthcheck
 RUN apk --no-cache add curl
 
+# Copy shared code
+COPY shared/ shared/
+
 # Copy built files
-COPY --from=builder /app/shared/dist shared/dist
 COPY --from=builder /app/packages/cart-service/dist packages/cart-service/dist
 
 # Set environment variables

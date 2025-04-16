@@ -25,7 +25,7 @@ COPY shared/utils/ shared/utils/
 COPY packages/notification-service/tsconfig.json packages/notification-service/
 COPY packages/notification-service/src/ packages/notification-service/src/
 
-# Build
+# Build service
 RUN npm run build --workspace=packages/notification-service
 
 # Production stage
@@ -50,8 +50,10 @@ RUN npm install
 # Install curl for healthcheck
 RUN apk --no-cache add curl
 
+# Copy shared code
+COPY shared/ shared/
+
 # Copy built files
-COPY --from=builder /app/shared/dist shared/dist
 COPY --from=builder /app/packages/notification-service/dist packages/notification-service/dist
 
 # Set environment variables

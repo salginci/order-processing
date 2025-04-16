@@ -5,7 +5,8 @@
   "main": "index.js",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "shared"
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev --workspace=packages/order-service\" \"npm run dev --workspace=packages/inventory-service\" \"npm run dev --workspace=packages/notification-service\" \"npm run dev --workspace=packages/product-service\" \"npm run dev --workspace=packages/email-service\" \"npm run dev --workspace=packages/cart-service\" \"npm run dev --workspace=packages/customer-service\"",
