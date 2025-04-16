@@ -112,7 +112,12 @@ app.use(express.json());
 
 // Health check endpoint
 app.get('/', (req, res) => {
-  res.json({ status: 'ok', service: 'cart-service' });
+  res.json({
+    status: 'healthy',
+    service: 'cart-service',
+    version: '1.0.0',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Get current cart

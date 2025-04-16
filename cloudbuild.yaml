@@ -1,11 +1,21 @@
 steps:
+  # Build and push Cart Service
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-t', 'gcr.io/$PROJECT_ID/cart-service:$COMMIT_SHA',
+      '-t', 'gcr.io/$PROJECT_ID/cart-service:latest',
+      '-f', 'packages/cart-service/Dockerfile',
+      '.'
+    ]
+
   # Build and push Order Service
   - name: 'gcr.io/cloud-builders/docker'
     args: [
       'build',
       '-t', 'gcr.io/$PROJECT_ID/order-service:$COMMIT_SHA',
       '-t', 'gcr.io/$PROJECT_ID/order-service:latest',
-      '-f', 'order-service/Dockerfile',
+      '-f', 'packages/order-service/Dockerfile',
       '.'
     ]
 
@@ -15,7 +25,7 @@ steps:
       'build',
       '-t', 'gcr.io/$PROJECT_ID/inventory-service:$COMMIT_SHA',
       '-t', 'gcr.io/$PROJECT_ID/inventory-service:latest',
-      '-f', 'inventory-service/Dockerfile',
+      '-f', 'packages/inventory-service/Dockerfile',
       '.'
     ]
 
@@ -25,14 +35,143 @@ steps:
       'build',
       '-t', 'gcr.io/$PROJECT_ID/notification-service:$COMMIT_SHA',
       '-t', 'gcr.io/$PROJECT_ID/notification-service:latest',
-      '-f', 'notification-service/Dockerfile',
+      '-f', 'packages/notification-service/Dockerfile',
       '.'
     ]
 
+  # Build and push Product Service
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-t', 'gcr.io/$PROJECT_ID/product-service:$COMMIT_SHA',
+      '-t', 'gcr.io/$PROJECT_ID/product-service:latest',
+      '-f', 'packages/product-service/Dockerfile',
+      '.'
+    ]
+
+  # Build and push Email Service
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-t', 'gcr.io/$PROJECT_ID/email-service:$COMMIT_SHA',
+      '-t', 'gcr.io/$PROJECT_ID/email-service:latest',
+      '-f', 'packages/email-service/Dockerfile',
+      '.'
+    ]
+
+  # Build and push Customer Service
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-t', 'gcr.io/$PROJECT_ID/customer-service:$COMMIT_SHA',
+      '-t', 'gcr.io/$PROJECT_ID/customer-service:latest',
+      '-f', 'packages/customer-service/Dockerfile',
+      '.'
+    ]
+
+  # Deploy Cart Service
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'cart-service'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/cart-service:$COMMIT_SHA'
+      - '--region'
+      - 'europe-west1'
+      - '--platform'
+      - 'managed'
+
+  # Deploy Order Service
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'order-service'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/order-service:$COMMIT_SHA'
+      - '--region'
+      - 'europe-west1'
+      - '--platform'
+      - 'managed'
+
+  # Deploy Inventory Service
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'inventory-service'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/inventory-service:$COMMIT_SHA'
+      - '--region'
+      - 'europe-west1'
+      - '--platform'
+      - 'managed'
+
+  # Deploy Notification Service
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'notification-service'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/notification-service:$COMMIT_SHA'
+      - '--region'
+      - 'europe-west1'
+      - '--platform'
+      - 'managed'
+
+  # Deploy Product Service
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'product-service'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/product-service:$COMMIT_SHA'
+      - '--region'
+      - 'europe-west1'
+      - '--platform'
+      - 'managed'
+
+  # Deploy Email Service
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'email-service'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/email-service:$COMMIT_SHA'
+      - '--region'
+      - 'europe-west1'
+      - '--platform'
+      - 'managed'
+
+  # Deploy Customer Service
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'customer-service'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/customer-service:$COMMIT_SHA'
+      - '--region'
+      - 'europe-west1'
+      - '--platform'
+      - 'managed'
+
 images:
+  - 'gcr.io/$PROJECT_ID/cart-service:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/cart-service:latest'
   - 'gcr.io/$PROJECT_ID/order-service:$COMMIT_SHA'
   - 'gcr.io/$PROJECT_ID/order-service:latest'
   - 'gcr.io/$PROJECT_ID/inventory-service:$COMMIT_SHA'
   - 'gcr.io/$PROJECT_ID/inventory-service:latest'
   - 'gcr.io/$PROJECT_ID/notification-service:$COMMIT_SHA'
-  - 'gcr.io/$PROJECT_ID/notification-service:latest' 
+  - 'gcr.io/$PROJECT_ID/notification-service:latest'
+  - 'gcr.io/$PROJECT_ID/product-service:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/product-service:latest'
+  - 'gcr.io/$PROJECT_ID/email-service:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/email-service:latest'
+  - 'gcr.io/$PROJECT_ID/customer-service:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/customer-service:latest' 
