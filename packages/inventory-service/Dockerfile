@@ -6,7 +6,6 @@ WORKDIR /app
 # Copy root package.json and workspace files
 COPY package*.json .
 COPY package-lock.json .
-COPY tsconfig.json .
 
 # Create necessary directories
 RUN mkdir -p shared/config shared/entities shared/types shared/utils packages/inventory-service
