@@ -6,17 +6,17 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 COPY shared/package*.json ./shared/
-COPY packages/product-service/package*.json ./packages/product-service/
+COPY packages/customer-service/package*.json ./packages/customer-service/
 
 # Install dependencies
 RUN npm install
 
 # Copy source code
 COPY shared/ ./shared/
-COPY packages/product-service/ ./packages/product-service/
+COPY packages/customer-service/ ./packages/customer-service/
 
 # Build
-RUN npm run build --workspace=packages/product-service
+RUN npm run build --workspace=packages/customer-service
 
 # Production stage
 FROM node:18-alpine
@@ -26,14 +26,14 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 COPY shared/package*.json ./shared/
-COPY packages/product-service/package*.json ./packages/product-service/
+COPY packages/customer-service/package*.json ./packages/customer-service/
 
 # Install dependencies
 RUN npm install
 
-# Copy shared and built product service
+# Copy shared and built customer service
 COPY shared/ ./shared/
-COPY --from=builder /app/packages/product-service/dist ./packages/product-service/dist
+COPY --from=builder /app/packages/customer-service/dist ./packages/customer-service/dist
 
 # Set environment variables
 ENV NODE_ENV=production
@@ -43,4 +43,4 @@ ENV PORT=8080
 EXPOSE 8080
 
 # Start the service
-CMD ["node", "packages/product-service/dist/index.js"] 
+CMD ["node", "packages/customer-service/dist/index.js"] 
