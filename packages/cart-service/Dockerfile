@@ -3,17 +3,26 @@ FROM node:18-alpine as builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY packages/shared/package*.json ./packages/shared/
-COPY packages/cart-service/package*.json ./packages/cart-service/
+# Copy root package.json and workspace files
+COPY package*.json .
+COPY lerna.json .
+COPY tsconfig.json .
+
+# Create necessary directories
+RUN mkdir -p packages/shared packages/cart-service
+
+# Copy package.json files for workspace packages
+COPY packages/shared/package*.json packages/shared/
+COPY packages/cart-service/package*.json packages/cart-service/
 
 # Install dependencies
 RUN npm ci
 
 # Copy source code
-COPY packages/shared ./packages/shared
-COPY packages/cart-service ./packages/cart-service
+COPY packages/shared/src/ packages/shared/src/
+COPY packages/shared/tsconfig.json packages/shared/
+COPY packages/cart-service/src/ packages/cart-service/src/
+COPY packages/cart-service/tsconfig.json packages/cart-service/
 
 # Build
 RUN npm run build --workspace=packages/cart-service
@@ -23,10 +32,16 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY packages/shared/package*.json ./packages/shared/
-COPY packages/cart-service/package*.json ./packages/cart-service/
+# Copy root package.json and workspace files
+COPY package*.json .
+COPY lerna.json .
+
+# Create necessary directories
+RUN mkdir -p packages/shared packages/cart-service
+
+# Copy package.json files for workspace packages
+COPY packages/shared/package*.json packages/shared/
+COPY packages/cart-service/package*.json packages/cart-service/
 
 # Install production dependencies only
 RUN npm ci --only=production
@@ -35,8 +50,8 @@ RUN npm ci --only=production
 RUN apk --no-cache add curl
 
 # Copy built files
-COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
-COPY --from=builder /app/packages/cart-service/dist ./packages/cart-service/dist
+COPY --from=builder /app/packages/shared/dist packages/shared/dist
+COPY --from=builder /app/packages/cart-service/dist packages/cart-service/dist
 
 # Set environment variables
 ENV NODE_ENV=production

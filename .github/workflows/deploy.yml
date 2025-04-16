@@ -28,6 +28,17 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
+    - name: Verify Repository Structure
+      run: |
+        echo "Current directory structure:"
+        ls -la
+        echo "\nPackages directory:"
+        ls -la packages/
+        echo "\nShared package:"
+        ls -la packages/shared/
+        echo "\nCart service:"
+        ls -la packages/cart-service/
+
     - name: Google Auth
       id: auth
       uses: google-github-actions/auth@v1
@@ -56,28 +67,45 @@ jobs:
     - name: Build and Push Cart Service
       run: |
         echo "Building Cart Service..."
-        docker build -t gcr.io/$PROJECT_ID/cart-service:$GITHUB_SHA -f packages/cart-service/Dockerfile .
+        echo "Current directory: $(pwd)"
+        echo "Contents of current directory:"
+        ls -la
+        echo "Contents of packages directory:"
+        ls -la packages/
+        docker build -t gcr.io/$PROJECT_ID/cart-service:$GITHUB_SHA \
+          --file packages/cart-service/Dockerfile \
+          --no-cache \
+          .
         echo "Pushing Cart Service image..."
         docker push gcr.io/$PROJECT_ID/cart-service:$GITHUB_SHA
 
     - name: Build and Push Order Service
       run: |
         echo "Building Order Service..."
-        docker build -t gcr.io/$PROJECT_ID/order-service:$GITHUB_SHA -f packages/order-service/Dockerfile .
+        docker build -t gcr.io/$PROJECT_ID/order-service:$GITHUB_SHA \
+          --file packages/order-service/Dockerfile \
+          --no-cache \
+          .
         echo "Pushing Order Service image..."
         docker push gcr.io/$PROJECT_ID/order-service:$GITHUB_SHA
 
     - name: Build and Push Inventory Service
       run: |
         echo "Building Inventory Service..."
-        docker build -t gcr.io/$PROJECT_ID/inventory-service:$GITHUB_SHA -f packages/inventory-service/Dockerfile .
+        docker build -t gcr.io/$PROJECT_ID/inventory-service:$GITHUB_SHA \
+          --file packages/inventory-service/Dockerfile \
+          --no-cache \
+          .
         echo "Pushing Inventory Service image..."
         docker push gcr.io/$PROJECT_ID/inventory-service:$GITHUB_SHA
 
     - name: Build and Push Notification Service
       run: |
         echo "Building Notification Service..."
-        docker build -t gcr.io/$PROJECT_ID/notification-service:$GITHUB_SHA -f packages/notification-service/Dockerfile .
+        docker build -t gcr.io/$PROJECT_ID/notification-service:$GITHUB_SHA \
+          --file packages/notification-service/Dockerfile \
+          --no-cache \
+          .
         echo "Pushing Notification Service image..."
         docker push gcr.io/$PROJECT_ID/notification-service:$GITHUB_SHA
 
