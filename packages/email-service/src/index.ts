@@ -6,7 +6,7 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-const port = process.env.EMAIL_PORT || 3004;
+const port = process.env.NODE_ENV === 'production' ? process.env.PORT || 8080 : process.env.EMAIL_PORT || 3004;
 
 // Initialize PubSub
 const pubsub = new PubSub();
@@ -14,10 +14,9 @@ const pubsub = new PubSub();
 // Health check endpoint
 app.get('/', (req, res) => {
   res.json({
-    status: 'ok',
+    status: 'healthy',
     service: 'email-service',
     version: '1.0.0',
-    uptime: process.uptime(),
     timestamp: new Date().toISOString()
   });
 });
