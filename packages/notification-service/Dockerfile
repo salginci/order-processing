@@ -15,7 +15,7 @@ COPY shared/package*.json shared/
 COPY packages/notification-service/package*.json packages/notification-service/
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
 # Copy shared code
 COPY shared/config/ shared/config/
@@ -43,8 +43,8 @@ RUN mkdir -p shared/config shared/entities shared/types shared/utils packages/no
 COPY shared/package*.json shared/
 COPY packages/notification-service/package*.json packages/notification-service/
 
-# Install production dependencies only
-RUN npm ci --only=production
+# Install dependencies
+RUN npm install
 
 # Install curl for healthcheck
 RUN apk --no-cache add curl
@@ -54,7 +54,6 @@ COPY --from=builder /app/shared/dist shared/dist
 COPY --from=builder /app/packages/notification-service/dist packages/notification-service/dist
 
 # Set environment variables
-ENV NODE_ENV=production
 ENV PORT=3003
 
 # Expose port
