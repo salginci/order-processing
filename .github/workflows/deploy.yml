@@ -31,13 +31,30 @@ jobs:
     - name: Verify Repository Structure
       run: |
         echo "Current directory structure:"
+        pwd
         ls -la
-        echo "\nPackages directory:"
-        ls -la packages/
-        echo "\nShared package:"
-        ls -la packages/shared/
-        echo "\nCart service:"
+        echo "\nShared directory contents:"
+        ls -la shared/
+        echo "\nShared src directory contents:"
+        ls -la shared/src/
+        echo "\nCart service contents:"
         ls -la packages/cart-service/
+        echo "\nPackage.json contents:"
+        cat package.json
+        echo "\nCart service package.json contents:"
+        cat packages/cart-service/package.json
+
+    - name: Prepare Build Context
+      run: |
+        # Create temporary build context
+        mkdir -p /tmp/build-context
+        # Copy all necessary files
+        cp -r . /tmp/build-context/
+        # Verify the copy
+        echo "Build context contents:"
+        ls -la /tmp/build-context/
+        echo "\nBuild context shared directory:"
+        ls -la /tmp/build-context/shared/
 
     - name: Google Auth
       id: auth
@@ -51,13 +68,6 @@ jobs:
         project_id: ${{ secrets.GCP_PROJECT_ID }}
         install_components: 'gke-gcloud-auth-plugin'
 
-    - name: Verify Google Cloud Authentication
-      run: |
-        echo "Verifying Google Cloud Authentication..."
-        gcloud auth list
-        gcloud config list
-        gcloud projects list
-
     - name: Configure Docker
       run: |
         echo "Configuring Docker authentication..."
@@ -68,44 +78,46 @@ jobs:
       run: |
         echo "Building Cart Service..."
         echo "Current directory: $(pwd)"
-        echo "Contents of current directory:"
-        ls -la
-        echo "Contents of packages directory:"
-        ls -la packages/
-        docker build -t gcr.io/$PROJECT_ID/cart-service:$GITHUB_SHA \
-          --file packages/cart-service/Dockerfile \
+        echo "Build context contents:"
+        ls -la /tmp/build-context/
+        docker build \
           --no-cache \
-          .
+          -t gcr.io/$PROJECT_ID/cart-service:$GITHUB_SHA \
+          -f packages/cart-service/Dockerfile \
+          /tmp/build-context
         echo "Pushing Cart Service image..."
         docker push gcr.io/$PROJECT_ID/cart-service:$GITHUB_SHA
 
     - name: Build and Push Order Service
       run: |
         echo "Building Order Service..."
-        docker build -t gcr.io/$PROJECT_ID/order-service:$GITHUB_SHA \
-          --file packages/order-service/Dockerfile \
+        docker build \
           --no-cache \
-          .
+          -t gcr.io/$PROJECT_ID/order-service:$GITHUB_SHA \
+          -f packages/order-service/Dockerfile \
+          /tmp/build-context
         echo "Pushing Order Service image..."
         docker push gcr.io/$PROJECT_ID/order-service:$GITHUB_SHA
 
     - name: Build and Push Inventory Service
       run: |
         echo "Building Inventory Service..."
-        docker build -t gcr.io/$PROJECT_ID/inventory-service:$GITHUB_SHA \
-          --file packages/inventory-service/Dockerfile \
+        docker build \
           --no-cache \
-          .
+          -t gcr.io/$PROJECT_ID/inventory-service:$GITHUB_SHA \
+          -f packages/inventory-service/Dockerfile \
+          /tmp/build-context
         echo "Pushing Inventory Service image..."
         docker push gcr.io/$PROJECT_ID/inventory-service:$GITHUB_SHA
 
     - name: Build and Push Notification Service
       run: |
         echo "Building Notification Service..."
-        docker build -t gcr.io/$PROJECT_ID/notification-service:$GITHUB_SHA \
-          --file packages/notification-service/Dockerfile \
+        docker build \
           --no-cache \
-          .
+          -t gcr.io/$PROJECT_ID/notification-service:$GITHUB_SHA \
+          -f packages/notification-service/Dockerfile \
+          /tmp/build-context
         echo "Pushing Notification Service image..."
         docker push gcr.io/$PROJECT_ID/notification-service:$GITHUB_SHA
 
