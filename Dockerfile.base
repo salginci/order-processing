@@ -1,0 +1,21 @@
+FROM node:18-alpine
+
+# Set production environment
+ENV NODE_ENV=production
+
+# Create app directory
+WORKDIR /app
+
+# Install dependencies
+COPY package*.json ./
+COPY tsconfig.json ./
+COPY packages/shared ./packages/shared
+
+# Install dependencies
+RUN npm install
+
+# Build shared package
+RUN cd packages/shared && npm run build
+
+# Set default command
+CMD ["node", "dist/index.js"] 

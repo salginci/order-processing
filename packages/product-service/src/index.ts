@@ -15,6 +15,9 @@ const pool = new Pool({
   port: parseInt(process.env.DB_PORT || '5432'),
   database: process.env.DB_NAME
 });
+
+const port = process.env.NODE_ENV === 'production' ? process.env.PORT || 8080 : process.env.PRODUCT_PORT || 3003;
+
 // Initialize database
 async function checkTableExists() {
   try {
@@ -180,10 +183,8 @@ app.delete('/products/:sku', async (req: express.Request, res: express.Response)
   }
 });
 
-const PORT = process.env.PRODUCT_PORT || 3003;
-
 initializeDatabase().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Product service listening at http://localhost:${PORT}`);
+  app.listen(port, () => {
+    console.log(`Product service listening at http://localhost:${port}`);
   });
 }); 

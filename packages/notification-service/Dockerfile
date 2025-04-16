@@ -81,4 +81,19 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
   CMD curl -f http://localhost:3003/health || exit 1
 
 # Start the service
-CMD ["node", "packages/notification-service/dist/index.js"] 
+CMD ["node", "packages/notification-service/dist/index.js"]
+
+# Copy service source
+COPY packages/notification-service ./packages/notification-service
+
+# Build service
+RUN cd packages/notification-service && npm install && npm run build
+
+# Set working directory to service
+WORKDIR /app/packages/notification-service
+
+# Expose port 8080
+EXPOSE 8080
+
+# Start service
+CMD ["node", "dist/index.js"] 

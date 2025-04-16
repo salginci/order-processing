@@ -1,13 +1,13 @@
 FROM Dockerfile.base
 
 # Copy service source
-COPY packages/order-service ./packages/order-service
+COPY packages/product-service ./packages/product-service
 
 # Build service
-RUN cd packages/order-service && npm install && npm run build
+RUN cd packages/product-service && npm install && npm run build
 
 # Set working directory to service
-WORKDIR /app/packages/order-service
+WORKDIR /app/packages/product-service
 
 # Expose port 8080
 EXPOSE 8080
